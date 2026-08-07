@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+	<meta charset="UTF-8">
+	<title th:text="${video.title}">動画再生</title>
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+
+	<div th:replace="~{fragments/header :: header}"></div>
+
+	<div class="player-container">
+		<h1 class="video-heading" th:text="${video.title}">動画タイトル</h1>
+		<div class="video-player-card">
+			<video controls class="video-player">
+				<source
+					th:src="@{/videos/play/{id}(id=${video.id})}"
+					type="video/mp4">
+				お使いのブラウザは動画を再生できません。
+			</video>
+		</div>
+
+		<a class="back-button" href="/videos">← 一覧へ戻る</a>
+	</div>
+
+</body>
+
+</html>
