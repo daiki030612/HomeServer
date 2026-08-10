@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.example.homeserver.Entity.Folder;
 import com.example.homeserver.Entity.Video;
 
 @Repository // ← このアノテーションを追加します
@@ -24,5 +25,7 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 	List<Video> findByFolderId(Long folderId);   
 	
 	List<Video> findByFolderIsNull();
+	
+	boolean existsByFolder(Folder folder);
 
 }

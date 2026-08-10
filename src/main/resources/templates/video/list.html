@@ -15,27 +15,26 @@
 
 		<!-- ページタイトル -->
 		<div class="page-title">
-
-			<button type="button" onclick="openFolderModal()">
-				📁 新しいフォルダ
-			</button>
-
-			<h1>Videos</h1>
-
-			<p>Your personal video library</p>
-
 		</div>
 
 
 		<!-- タグ削除エラー -->
 		<div class="tag-delete-error" th:if="${tagDeleteError}" th:text="${tagDeleteError}">
 		</div>
+		<div class="tag-delete-error"
+		     th:if="${folderDeleteError}">
+
+		    中身があるフォルダーは削除できません。
+
+		</div>
 
 
 		<!-- フォルダ一覧 -->
 		<div class="folder-grid">
 
-			<div class="folder-card" th:each="folder : ${folders}">
+			<div class="folder-card" th:each="folder : ${folders}" oncontextmenu="openFolderMenu(event, this)"
+				ontouchstart="startFolderLongPress(event, this)" ontouchend="cancelFolderLongPress()"
+				ontouchmove="cancelFolderLongPress()">
 
 				<a class="folder-link" th:href="@{/videos/folder/{id}(id=${folder.id})}">
 
@@ -46,6 +45,29 @@
 					</div>
 
 				</a>
+
+
+				<!-- フォルダメニュー -->
+
+				<div class="folder-menu-dropdown">
+
+					<a href="#"
+					   th:data-id="${folder.id}"
+					   th:data-name="${folder.name}"
+					   onclick="openRenameFolderModal(event, this)">
+
+					    名前を変更
+
+					</a>
+
+
+					<a href="#" th:data-id="${folder.id}" onclick="deleteFolder(event, this)">
+
+						削除
+
+					</a>
+
+				</div>
 
 			</div>
 
@@ -89,37 +111,33 @@
 
 						<div class="menu-dropdown">
 
-						    <!-- 名前・タグ編集 -->
-						    <a href="#"
-						       class="edit-video-button"
-						       th:data-id="${video.id}"
-						       th:data-title="${video.title}"
-						       th:data-tags="${#strings.listJoin(video.tags.![name], ',')}"
-						       onclick="openEditModalFromButton(event, this)">
+							<!-- 名前・タグ編集 -->
+							<a href="#" class="edit-video-button" th:data-id="${video.id}"
+								th:data-title="${video.title}"
+								th:data-tags="${#strings.listJoin(video.tags.![name], ',')}"
+								onclick="openEditModalFromButton(event, this)">
 
-						        名前・タグを編集
+								名前・タグを編集
 
-						    </a>
+							</a>
 
 
-						    <!-- フォルダーへ移動 -->
-						    <a href="#"
-						       class="move-video-button"
-						       th:data-id="${video.id}"
-						       onclick="openMoveFolderModal(event, this)">
+							<!-- フォルダーへ移動 -->
+							<a href="#" class="move-video-button" th:data-id="${video.id}"
+								onclick="openMoveFolderModal(event, this)">
 
-						        フォルダーへ移動
+								フォルダーへ移動
 
-						    </a>
+							</a>
 
 
-						    <!-- 動画削除 -->
-						    <a th:href="@{/videos/delete/{id}(id=${video.id})}"
-						       onclick="return confirm('この動画を削除しますか？');">
+							<!-- 動画削除 -->
+							<a th:href="@{/videos/delete/{id}(id=${video.id})}"
+								onclick="return confirm('この動画を削除しますか？');">
 
-						        削除
+								削除
 
-						    </a>
+							</a>
 
 						</div>
 
@@ -221,61 +239,56 @@
 
 		<div id="moveFolderModal" class="modal">
 
-		    <div class="modal-content">
+			<div class="modal-content">
 
-		        <h2>動画を移動</h2>
-
-
-		        <!-- 動画ID -->
-		        <input type="hidden"
-		               id="moveVideoId">
+				<h2>動画を移動</h2>
 
 
-		        <!-- 移動先フォルダー -->
-
-		        <label for="moveFolderId">
-		            移動先
-		        </label>
+				<!-- 動画ID -->
+				<input type="hidden" id="moveVideoId">
 
 
-		        <select id="moveFolderId">
+				<!-- 移動先フォルダー -->
 
-		            <!-- メインページ -->
-		            <option value="">
-		                メインページ
-		            </option>
-
-
-		            <!-- フォルダー一覧 -->
-		            <option th:each="folder : ${allFolders}"
-		                    th:value="${folder.id}"
-		                    th:text="'📁 ' + ${folder.name}">
-
-		                フォルダー名
-
-		            </option>
-
-		        </select>
+				<label for="moveFolderId">
+					移動先
+				</label>
 
 
-		        <!-- ボタン -->
+				<select id="moveFolderId">
 
-		        <button type="button"
-		                onclick="moveVideo()">
-
-		            移動
-
-		        </button>
+					<!-- メインページ -->
+					<option value="">
+						メインページ
+					</option>
 
 
-		        <button type="button"
-		                onclick="closeMoveFolderModal()">
+					<!-- フォルダー一覧 -->
+					<option th:each="folder : ${allFolders}" th:value="${folder.id}" th:text="'📁 ' + ${folder.name}">
 
-		            キャンセル
+						フォルダー名
 
-		        </button>
+					</option>
 
-		    </div>
+				</select>
+
+
+				<!-- ボタン -->
+
+				<button type="button" onclick="moveVideo()">
+
+					移動
+
+				</button>
+
+
+				<button type="button" onclick="closeMoveFolderModal()">
+
+					キャンセル
+
+				</button>
+
+			</div>
 
 		</div>
 
@@ -308,6 +321,52 @@
 				</form>
 
 			</div>
+
+		</div>
+		
+		<!-- =========================
+		     フォルダー名前変更モーダル
+		     ========================= -->
+
+		<div id="renameFolderModal" class="modal">
+
+		    <div class="modal-content">
+
+		        <h2>フォルダー名を変更</h2>
+
+
+		        <form th:action="@{/folders/rename}"
+		              method="post">
+
+		            <!-- フォルダーID -->
+		            <input type="hidden"
+		                   id="renameFolderId"
+		                   name="id">
+
+
+		            <!-- フォルダー名 -->
+		            <input type="text"
+		                   id="renameFolderName"
+		                   name="name"
+		                   placeholder="フォルダー名"
+		                   required>
+
+
+		            <button type="submit">
+		                保存
+		            </button>
+
+
+		            <button type="button"
+		                    onclick="closeRenameFolderModal()">
+
+		                キャンセル
+
+		            </button>
+
+		        </form>
+
+		    </div>
 
 		</div>
 

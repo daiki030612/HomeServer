@@ -625,3 +625,230 @@ function moveVideo() {
         });
 
 }
+
+// =========================
+// フォルダーメニュー
+// =========================
+
+function toggleFolderMenu(event, button) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+
+    const menu =
+        button.nextElementSibling;
+
+
+    document
+        .querySelectorAll(".menu-dropdown")
+        .forEach(function(otherMenu) {
+
+            if (otherMenu !== menu) {
+
+                otherMenu.classList.remove("show");
+
+            }
+
+        });
+
+
+    menu.classList.toggle("show");
+
+}
+
+
+// =========================
+// フォルダー名前変更モーダル
+// =========================
+
+function openRenameFolderModal(
+    event,
+    button
+) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+
+    const id =
+        button.dataset.id;
+
+    const name =
+        button.dataset.name;
+
+
+    document
+        .getElementById("renameFolderId")
+        .value = id;
+
+
+    document
+        .getElementById("renameFolderName")
+        .value = name;
+
+
+    document
+        .getElementById("renameFolderModal")
+        .classList.add("show");
+
+}
+
+
+// =========================
+// フォルダー名前変更モーダルを閉じる
+// =========================
+
+function closeRenameFolderModal() {
+
+    document
+        .getElementById("renameFolderModal")
+        .classList.remove("show");
+
+}
+// =========================
+// フォルダメニュー
+// =========================
+
+let folderLongPressTimer = null;
+
+
+// =========================
+// PC：右クリック
+// =========================
+
+function openFolderMenu(event, card) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const menu =
+        card.querySelector(".folder-menu-dropdown");
+
+
+    // 他のメニューを閉じる
+
+    document
+        .querySelectorAll(".folder-menu-dropdown")
+        .forEach(function(otherMenu) {
+
+            if (otherMenu !== menu) {
+
+                otherMenu.classList.remove("show");
+
+            }
+
+        });
+
+
+    // メニュー位置
+
+    const rect =
+        card.getBoundingClientRect();
+
+    menu.style.left =
+        (event.clientX - rect.left) + "px";
+
+    menu.style.top =
+        (event.clientY - rect.top) + "px";
+
+
+    menu.classList.add("show");
+
+}
+
+
+// =========================
+// スマホ：長押し開始
+// =========================
+
+function startFolderLongPress(event, card) {
+
+    folderLongPressTimer =
+        setTimeout(function() {
+
+            const touch =
+                event.touches[0];
+
+            openFolderMenu(
+                {
+                    preventDefault: function() {},
+                    stopPropagation: function() {},
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                },
+                card
+            );
+
+        }, 600);
+
+}
+
+
+// =========================
+// 長押しキャンセル
+// =========================
+
+function cancelFolderLongPress() {
+
+    clearTimeout(
+        folderLongPressTimer
+    );
+
+}
+
+
+// =========================
+// フォルダ外クリックで閉じる
+// =========================
+
+document.addEventListener(
+    "click",
+    function(event) {
+
+        if (
+            !event.target.closest(".folder-card")
+        ) {
+
+            document
+                .querySelectorAll(
+                    ".folder-menu-dropdown"
+                )
+                .forEach(function(menu) {
+
+                    menu.classList.remove("show");
+
+                });
+
+        }
+
+    }
+);
+
+// =========================
+// フォルダー削除
+// =========================
+
+function deleteFolder(event, button) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+
+    const id =
+        button.dataset.id;
+
+
+    if (!confirm(
+        "このフォルダーを削除しますか？"
+    )) {
+
+        return;
+
+    }
+
+
+    window.location.href =
+        "/folders/delete/" + id;
+
+}

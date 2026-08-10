@@ -33,9 +33,16 @@
 				</form>
 
 
+				<!-- 新しいフォルダ -->
+				<a href="#" onclick="openFolderModal(); return false;"> 
+					📁 新しいフォルダ 
+				</a>
+
+
+				<!-- アップロード -->
 				<a th:href="@{/videos/upload(
-				    folderId=${currentFolder != null ? currentFolder.id : null}
-				)}">
+		            folderId=${currentFolder != null ? currentFolder.id : null}
+		        )}">
 					Upload
 				</a>
 

@@ -14,5 +14,7 @@ public interface FolderRepository
     List<Folder> findByParentIsNullOrderBySortOrderAsc();
 
     List<Folder> findByParentOrderBySortOrderAsc(Folder parent);
+    
+    boolean existsByParent(Folder parent);
 
 }

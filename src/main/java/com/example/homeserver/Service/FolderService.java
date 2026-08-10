@@ -7,85 +7,146 @@ import org.springframework.stereotype.Service;
 
 import com.example.homeserver.Entity.Folder;
 import com.example.homeserver.Repository.FolderRepository;
+import com.example.homeserver.Repository.VideoRepository;
 
 @Service
 public class FolderService {
 
-    @Autowired
-    private FolderRepository folderRepository;
+	@Autowired
+	private FolderRepository folderRepository;
 
+	@Autowired
+	private VideoRepository videoRepository;
 
-    // フォルダ作成
-    public Folder createFolder(String name, Long parentId) {
+	// =========================
+	// フォルダ作成
+	// =========================
 
-        Folder folder = new Folder();
+	public Folder createFolder(
+			String name,
+			Long parentId) {
 
-        folder.setName(name);
+		Folder folder = new Folder();
 
-        folder.setSortOrder(0);
+		folder.setName(name);
 
+		folder.setSortOrder(0);
 
-        // 親フォルダがある場合
-        if (parentId != null) {
+		// 親フォルダがある場合
+		if (parentId != null) {
 
-            Folder parent =
-                    folderRepository
-                            .findById(parentId)
-                            .orElse(null);
+			Folder parent = folderRepository
+					.findById(parentId)
+					.orElse(null);
 
-            folder.setParent(parent);
+			folder.setParent(parent);
 
-        }
+		}
 
+		return folderRepository.save(folder);
 
-        return folderRepository.save(folder);
+	}
 
-    }
+	// =========================
+	// ルートフォルダ取得
+	// =========================
 
+	public List<Folder> getRootFolders() {
 
-    // ルートフォルダ取得
-    public List<Folder> getRootFolders() {
+		return folderRepository
+				.findByParentIsNullOrderBySortOrderAsc();
 
-        return folderRepository
-                .findByParentIsNullOrderBySortOrderAsc();
+	}
 
-    }
+	// =========================
+	// 子フォルダ取得
+	// =========================
 
+	public List<Folder> getChildFolders(
+			Long parentId) {
 
-    // 子フォルダ取得
-    public List<Folder> getChildFolders(
-            Long parentId) {
+		Folder parent = folderRepository
+				.findById(parentId)
+				.orElse(null);
 
-        Folder parent =
-                folderRepository
-                        .findById(parentId)
-                        .orElse(null);
+		if (parent == null) {
 
-        if (parent == null) {
+			return List.of();
 
-            return List.of();
+		}
 
-        }
+		return folderRepository
+				.findByParentOrderBySortOrderAsc(parent);
 
-        return folderRepository
-                .findByParentOrderBySortOrderAsc(parent);
+	}
 
-    }
+	// =========================
+	// ID検索
+	// =========================
 
+	public Folder getFolderById(Long id) {
 
-    // ID検索
-    public Folder getFolderById(Long id) {
+		return folderRepository
+				.findById(id)
+				.orElse(null);
 
-        return folderRepository
-                .findById(id)
-                .orElse(null);
+	}
 
-    }
-    
-    public List<Folder> getAllFolders() {
+	// =========================
+	// 全フォルダ取得
+	// =========================
 
-        return folderRepository.findAll();
+	public List<Folder> getAllFolders() {
 
-    }
+		return folderRepository.findAll();
 
+	}
+
+	// =========================
+	// フォルダー名前変更
+	// =========================
+
+	public void renameFolder(Long id, String name) {
+
+		Folder folder = folderRepository
+				.findById(id)
+				.orElse(null);
+
+		if (folder == null) {
+			return;
+		}
+
+		folder.setName(name);
+
+		folderRepository.save(folder);
+	}
+
+	// =========================
+	// フォルダー削除
+	// =========================
+
+	public boolean deleteFolder(Long id) {
+
+		Folder folder = folderRepository
+				.findById(id)
+				.orElse(null);
+
+		if (folder == null) {
+			return false;
+		}
+
+		// 子フォルダーがある場合
+		if (folderRepository.existsByParent(folder)) {
+			return false;
+		}
+
+		// 動画が入っている場合
+		if (videoRepository.existsByFolder(folder)) {
+			return false;
+		}
+
+		folderRepository.delete(folder);
+
+		return true;
+	}
 }
