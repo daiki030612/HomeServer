@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -41,10 +42,33 @@ public class VideoService {
 	private String videoStoragePath;
 
 	// 動画一覧取得
-	public List<Video> getAllVideos() {
+	public List<Video> getAllVideos(String sort) {
 
-	    return videoRepository.findByFolderIsNull();
+		if ("oldest".equals(sort)) {
 
+			return videoRepository
+					.findByFolderIsNullOrderByCreatedAtAsc();
+
+		}
+
+		if ("nameAsc".equals(sort)) {
+
+			return videoRepository
+					.findByFolderIsNullOrderByTitleAsc();
+
+		}
+
+		if ("nameDesc".equals(sort)) {
+
+			return videoRepository
+					.findByFolderIsNullOrderByTitleDesc();
+
+		}
+
+		// デフォルト：新しい順
+
+		return videoRepository
+				.findByFolderIsNullOrderByCreatedAtDesc();
 	}
 
 	// 動画保存
@@ -255,13 +279,6 @@ public class VideoService {
 
 	}
 
-	public List<Video> searchVideos(String keyword) {
-
-		return videoRepository
-				.searchByTitleOrTag(keyword);
-
-	}
-
 	// フォルダ内の動画取得
 	public List<Video> getVideosByFolder(Long folderId) {
 
@@ -365,6 +382,103 @@ public class VideoService {
 		}
 		// DB更新
 		videoRepository.save(video);
+	}
+
+	// =========================
+	// 動画並び替え
+	// =========================
+
+	public List<Video> getVideosByFolder(
+			Long folderId,
+			String sort) {
+
+		if ("oldest".equals(sort)) {
+
+			return videoRepository
+					.findByFolderIdOrderByCreatedAtAsc(folderId);
+
+		}
+
+		if ("nameAsc".equals(sort)) {
+
+			return videoRepository
+					.findByFolderIdOrderByTitleAsc(folderId);
+
+		}
+
+		if ("nameDesc".equals(sort)) {
+
+			return videoRepository
+					.findByFolderIdOrderByTitleDesc(folderId);
+
+		}
+
+		// デフォルト：新しい順
+
+		return videoRepository
+				.findByFolderIdOrderByCreatedAtDesc(folderId);
+	}
+
+	public List<Video> searchVideos(
+			String keyword,
+			String sort) {
+
+		Sort sortOption;
+
+		if ("oldest".equals(sort)) {
+
+			sortOption = Sort.by("createdAt").ascending();
+
+		} else if ("nameAsc".equals(sort)) {
+
+			sortOption = Sort.by("title").ascending();
+
+		} else if ("nameDesc".equals(sort)) {
+
+			sortOption = Sort.by("title").descending();
+
+		} else {
+
+			// デフォルト：新しい順
+			sortOption = Sort.by("createdAt").descending();
+		}
+
+		return videoRepository
+				.searchByTitleOrTag(
+						keyword,
+						sortOption);
+	}
+
+	public List<Video> searchVideosByFolder(
+			Long folderId,
+			String keyword,
+			String sort) {
+
+		Sort sortOption;
+
+		if ("oldest".equals(sort)) {
+
+			sortOption = Sort.by("createdAt").ascending();
+
+		} else if ("nameAsc".equals(sort)) {
+
+			sortOption = Sort.by("title").ascending();
+
+		} else if ("nameDesc".equals(sort)) {
+
+			sortOption = Sort.by("title").descending();
+
+		} else {
+
+			// デフォルト：新しい順
+			sortOption = Sort.by("createdAt").descending();
+		}
+
+		return videoRepository
+				.searchByFolderAndTitleOrTag(
+						folderId,
+						keyword,
+						sortOption);
 	}
 
 }

@@ -2,6 +2,7 @@ package com.example.homeserver.Repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Repository;
 import com.example.homeserver.Entity.Folder;
 import com.example.homeserver.Entity.Video;
 
-@Repository // ← このアノテーションを追加します
+@Repository
 public interface VideoRepository extends JpaRepository<Video, Long> {
 	boolean existsByFileName(String fileName);
 	
@@ -21,10 +22,46 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 		    WHERE LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
 		       OR LOWER(t.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
 		""")
-		List<Video> searchByTitleOrTag(@Param("keyword") String keyword);
+		List<Video> searchByTitleOrTag(
+		        @Param("keyword") String keyword,
+		        Sort sort);
+	
+	@Query("""
+	    SELECT DISTINCT v
+	    FROM Video v
+	    LEFT JOIN v.tags t
+	    WHERE v.folder.id = :folderId
+	      AND (
+	          LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	          OR LOWER(t.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	      )
+	""")
+	List<Video> searchByFolderAndTitleOrTag(
+	        @Param("folderId") Long folderId,
+	        @Param("keyword") String keyword,
+	        Sort sort);
+
 	List<Video> findByFolderId(Long folderId);   
 	
 	List<Video> findByFolderIsNull();
+	
+	List<Video> findByFolderIdOrderByCreatedAtDesc(Long folderId);
+
+	List<Video> findByFolderIdOrderByCreatedAtAsc(Long folderId);
+
+	List<Video> findByFolderIdOrderByTitleAsc(Long folderId);
+
+	List<Video> findByFolderIdOrderByTitleDesc(Long folderId);
+
+
+	// メインページ
+	List<Video> findByFolderIsNullOrderByCreatedAtDesc();
+
+	List<Video> findByFolderIsNullOrderByCreatedAtAsc();
+
+	List<Video> findByFolderIsNullOrderByTitleAsc();
+
+	List<Video> findByFolderIsNullOrderByTitleDesc();
 	
 	boolean existsByFolder(Folder folder);
 

@@ -80,7 +80,7 @@ public class VideoScanner {
                 	);
 
 
-                	video.setCreated_at(LocalDateTime.now());
+                	video.setCreatedAt(LocalDateTime.now());
 
                 	videoRepository.save(video);
 

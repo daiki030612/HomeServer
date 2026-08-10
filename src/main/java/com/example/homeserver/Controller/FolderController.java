@@ -24,6 +24,11 @@ public class FolderController {
 		folderService.createFolder(
 				name,
 				parentId);
+		
+		// フォルダー内から作成した場合
+	    if (parentId != null) {
+	        return "redirect:/videos/folder/" + parentId;
+	    }
 
 		return "redirect:/videos";
 

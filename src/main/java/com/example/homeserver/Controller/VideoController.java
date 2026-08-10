@@ -49,28 +49,29 @@ public class VideoController {
 	public String getAllVideos(
 			@RequestParam(required = false) String tagDeleteError,
 			@RequestParam(required = false) String keyword,
+			@RequestParam(defaultValue = "newest") String sort,
 			Model model) {
-		
+
 		if (tagDeleteError != null) {
 
-		    model.addAttribute(
-		            "tagDeleteError",
-		            "このタグは動画で使用されているため削除できません。"
-		    );
+			model.addAttribute(
+					"tagDeleteError",
+					"このタグは動画で使用されているため削除できません。");
 
 		}
+
+		model.addAttribute("keyword", keyword);
+		model.addAttribute("sort", sort);
 
 		List<Video> videos;
 
 		if (keyword == null || keyword.isBlank()) {
 
-			// 検索キーワードがない
-			videos = videoService.getAllVideos();
+			videos = videoService.getAllVideos(sort);
 
 		} else {
 
-			// 検索キーワードがある
-			videos = videoService.searchVideos(keyword);
+			videos = videoService.searchVideos(keyword, sort);
 
 		}
 
@@ -88,20 +89,17 @@ public class VideoController {
 		model.addAttribute(
 				"folders",
 				folders);
-		
-		// 登録済みタグ
-	    model.addAttribute(
-	            "tags",
-	            tagService.getAllTags()
-	    );
-	    
-	    List<Folder> allFolders =
-	            folderService.getAllFolders();
 
-	    model.addAttribute(
-	            "allFolders",
-	            allFolders
-	    );
+		// 登録済みタグ
+		model.addAttribute(
+				"tags",
+				tagService.getAllTags());
+
+		List<Folder> allFolders = folderService.getAllFolders();
+
+		model.addAttribute(
+				"allFolders",
+				allFolders);
 
 		return "video/list";
 	}
@@ -113,6 +111,8 @@ public class VideoController {
 	@GetMapping("/folder/{id}")
 	public String openFolder(
 			@PathVariable Long id,
+			@RequestParam(required = false) String keyword,
+			@RequestParam(defaultValue = "newest") String sort,
 			Model model) {
 
 		// フォルダ取得
@@ -120,39 +120,74 @@ public class VideoController {
 
 		// 存在しないフォルダの場合
 		if (folder == null) {
-
 			return "redirect:/videos";
-
 		}
 
-		List<Folder> allFolders =
-		        folderService.getAllFolders();
+		// =========================
+		// フォルダ内動画取得
+		// =========================
+
+		List<Video> videos;
+
+		if (keyword == null || keyword.isBlank()) {
+
+			// 検索なし
+			videos = videoService.getVideosByFolder(id, sort);
+
+		} else {
+
+			// フォルダ内検索
+			videos = videoService.searchVideosByFolder(
+					id,
+					keyword,
+					sort);
+		}
+
+		// =========================
+		// フォルダ情報
+		// =========================
+
+		List<Folder> allFolders = folderService.getAllFolders();
 
 		model.addAttribute(
-		        "allFolders",
-		        allFolders
-		);
-		// フォルダ内の動画を取得
-		List<Video> videos = videoService.getVideosByFolder(id);
+				"allFolders",
+				allFolders);
 
-		// フォルダ内の子フォルダを取得
 		List<Folder> folders = folderService.getChildFolders(id);
-
-		model.addAttribute(
-				"videos",
-				videos);
 
 		model.addAttribute(
 				"folders",
 				folders);
 
-		// 現在開いているフォルダ
+		model.addAttribute(
+				"videos",
+				videos);
+
+		// 現在のフォルダ
 		model.addAttribute(
 				"currentFolder",
 				folder);
-		
+
+		// 検索・ソート状態
+		model.addAttribute(
+				"keyword",
+				keyword);
+
+		model.addAttribute(
+				"sort",
+				sort);
+
 		// 登録済みタグ
-		model.addAttribute("tags", tagService.getAllTags());
+		model.addAttribute(
+				"tags",
+				tagService.getAllTags());
+
+		// パンくず
+		List<Folder> breadcrumbs = folderService.getBreadcrumbs(id);
+
+		model.addAttribute(
+				"breadcrumbs",
+				breadcrumbs);
 
 		return "video/list";
 	}
@@ -231,21 +266,21 @@ public class VideoController {
 
 	@PostMapping("/upload")
 	public String upload(
-	        @RequestParam("file") MultipartFile file,
-	        @RequestParam(value = "folderId", required = false) Long folderId) {
+			@RequestParam("file") MultipartFile file,
+			@RequestParam(value = "folderId", required = false) Long folderId) {
 
-	    System.out.println("① Controller開始");
-	    System.out.println("folderId = " + folderId);
+		System.out.println("① Controller開始");
+		System.out.println("folderId = " + folderId);
 
-	    videoService.upload(file, folderId);
+		videoService.upload(file, folderId);
 
-	    System.out.println("② Service完了");
+		System.out.println("② Service完了");
 
-	    if (folderId != null) {
-	        return "redirect:/videos/folder/" + folderId;
-	    }
+		if (folderId != null) {
+			return "redirect:/videos/folder/" + folderId;
+		}
 
-	    return "redirect:/videos";
+		return "redirect:/videos";
 	}
 	// =========================
 	// 動画削除
@@ -286,37 +321,34 @@ public class VideoController {
 
 	@PostMapping("/edit")
 	public String editVideo(
-	        @RequestParam Long id,
-	        @RequestParam String title,
-	        @RequestParam(required = false) String tags
-	) {
+			@RequestParam Long id,
+			@RequestParam String title,
+			@RequestParam(required = false) String tags) {
 
-	    videoService.updateVideo(
-	            id,
-	            title,
-	            tags
-	    );
+		videoService.updateVideo(
+				id,
+				title,
+				tags);
 
-	    return "redirect:/videos";
+		return "redirect:/videos";
 	}
-	
+
 	// =========================
 	// タグ削除
 	// =========================
 
 	@GetMapping("/tag/delete/{id}")
 	public String deleteTag(
-	        @PathVariable Long id,
-	        Model model) {
+			@PathVariable Long id,
+			Model model) {
 
-	    boolean deleted =
-	            tagService.deleteTag(id);
-	    if (!deleted) {
+		boolean deleted = tagService.deleteTag(id);
+		if (!deleted) {
 
-	        return "redirect:/videos?tagDeleteError";
+			return "redirect:/videos?tagDeleteError";
 
-	    }
-	    return "redirect:/videos";
+		}
+		return "redirect:/videos";
 
 	}
 
@@ -326,16 +358,14 @@ public class VideoController {
 
 	@PostMapping("/move")
 	public String moveVideo(
-	        @RequestParam Long videoId,
-	        @RequestParam(required = false) Long folderId) {
+			@RequestParam Long videoId,
+			@RequestParam(required = false) Long folderId) {
 
-	    videoService.moveVideo(
-	            videoId,
-	            folderId
-	    );
+		videoService.moveVideo(
+				videoId,
+				folderId);
 
-	    return "redirect:/videos";
+		return "redirect:/videos";
 	}
-
 
 }

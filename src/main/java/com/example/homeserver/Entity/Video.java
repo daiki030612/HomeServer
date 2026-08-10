@@ -43,7 +43,7 @@ public class Video {
 	private String folderName;
 
 	@Column(name = "created_at")
-	private LocalDateTime created_at;
+	private LocalDateTime createdAt;
 
 	@ManyToOne
 	@JoinColumn(name = "folder_id")
@@ -62,21 +62,21 @@ public class Video {
 	}
 
 	public Video(
-			String title,
-			String fileName,
-			String thumbnailName,
-			String filePath,
-			String thumbnailPath,
-			String folderName,
-			LocalDateTime created_at) {
+	        String title,
+	        String fileName,
+	        String thumbnailName,
+	        String filePath,
+	        String thumbnailPath,
+	        String folderName,
+	        LocalDateTime createdAt) {
 
-		this.title = title;
-		this.fileName = fileName;
-		this.thumbnailName = thumbnailName;
-		this.filePath = filePath;
-		this.thumbnailPath = thumbnailPath;
-		this.folderName = folderName;
-		this.created_at = created_at;
+	    this.title = title;
+	    this.fileName = fileName;
+	    this.thumbnailName = thumbnailName;
+	    this.filePath = filePath;
+	    this.thumbnailPath = thumbnailPath;
+	    this.folderName = folderName;
+	    this.createdAt = createdAt;
 	}
 
 	public Folder getFolder() {

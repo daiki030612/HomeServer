@@ -1204,3 +1204,41 @@ body {
 	background: #f5f5f5;
 
 }
+
+.breadcrumb {
+
+	margin-bottom: 20px;
+
+	font-size: 14px;
+
+	color: #666;
+
+}
+
+.breadcrumb a {
+
+	color: #555;
+
+	text-decoration: none;
+
+}
+
+.breadcrumb a:hover {
+
+	text-decoration: underline;
+
+}
+
+.breadcrumb span {
+
+	margin: 0 4px;
+
+}
+
+.search-input {
+    display: none;
+}
+
+.search-button {
+    display: none;
+}

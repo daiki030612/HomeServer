@@ -1,5 +1,6 @@
 package com.example.homeserver.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -148,5 +149,27 @@ public class FolderService {
 		folderRepository.delete(folder);
 
 		return true;
+	}
+	
+	// =========================
+	// パンくずリスト取得
+	// =========================
+
+	public List<Folder> getBreadcrumbs(Long folderId) {
+
+	    List<Folder> breadcrumbs = new ArrayList<>();
+
+	    Folder folder =
+	            folderRepository.findById(folderId)
+	                    .orElse(null);
+
+	    while (folder != null) {
+
+	        breadcrumbs.add(0, folder);
+
+	        folder = folder.getParent();
+	    }
+
+	    return breadcrumbs;
 	}
 }

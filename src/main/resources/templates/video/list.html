@@ -13,18 +13,87 @@
 
 	<div class="container">
 
+		<!-- =========================
+		     パンくずリスト
+		     ========================= -->
+
+		<div class="breadcrumb" th:if="${currentFolder != null}">
+
+			<a href="/videos">
+				Videos
+			</a>
+
+			<span>/</span>
+
+			<span th:each="folder, stat : ${breadcrumbs}">
+
+				<a th:if="${!stat.last}" th:href="@{/videos/folder/{id}(id=${folder.id})}" th:text="${folder.name}">
+					フォルダー
+				</a>
+
+				<span th:if="${stat.last}" th:text="${folder.name}">
+					現在のフォルダー
+				</span>
+
+				<span th:if="${!stat.last}">
+					/
+				</span>
+
+			</span>
+
+		</div>
+
+		<form class="header-search" method="get">
+
+		    <input type="text"
+		           name="keyword"
+		           placeholder="動画を検索..."
+				   class="search-input"
+		           th:value="${keyword}">
+
+		    <button type="submit" class="search-button">
+		        🔍
+		    </button>
+
+		    <select name="sort"
+		            onchange="this.form.submit()">
+
+		        <option value="newest"
+		                th:selected="${sort == 'newest'}">
+		            新しい順
+		        </option>
+
+		        <option value="oldest"
+		                th:selected="${sort == 'oldest'}">
+		            古い順
+		        </option>
+
+		        <option value="nameAsc"
+		                th:selected="${sort == 'nameAsc'}">
+		            名前順
+		        </option>
+
+		        <option value="nameDesc"
+		                th:selected="${sort == 'nameDesc'}">
+		            名前逆順
+		        </option>
+
+		    </select>
+
+		</form>
 		<!-- ページタイトル -->
 		<div class="page-title">
 		</div>
 
 
+
+
 		<!-- タグ削除エラー -->
 		<div class="tag-delete-error" th:if="${tagDeleteError}" th:text="${tagDeleteError}">
 		</div>
-		<div class="tag-delete-error"
-		     th:if="${folderDeleteError}">
+		<div class="tag-delete-error" th:if="${folderDeleteError}">
 
-		    中身があるフォルダーは削除できません。
+			中身があるフォルダーは削除できません。
 
 		</div>
 
@@ -51,12 +120,10 @@
 
 				<div class="folder-menu-dropdown">
 
-					<a href="#"
-					   th:data-id="${folder.id}"
-					   th:data-name="${folder.name}"
-					   onclick="openRenameFolderModal(event, this)">
+					<a href="#" th:data-id="${folder.id}" th:data-name="${folder.name}"
+						onclick="openRenameFolderModal(event, this)">
 
-					    名前を変更
+						名前を変更
 
 					</a>
 
@@ -323,50 +390,42 @@
 			</div>
 
 		</div>
-		
+
 		<!-- =========================
 		     フォルダー名前変更モーダル
 		     ========================= -->
 
 		<div id="renameFolderModal" class="modal">
 
-		    <div class="modal-content">
+			<div class="modal-content">
 
-		        <h2>フォルダー名を変更</h2>
-
-
-		        <form th:action="@{/folders/rename}"
-		              method="post">
-
-		            <!-- フォルダーID -->
-		            <input type="hidden"
-		                   id="renameFolderId"
-		                   name="id">
+				<h2>フォルダー名を変更</h2>
 
 
-		            <!-- フォルダー名 -->
-		            <input type="text"
-		                   id="renameFolderName"
-		                   name="name"
-		                   placeholder="フォルダー名"
-		                   required>
+				<form th:action="@{/folders/rename}" method="post">
+
+					<!-- フォルダーID -->
+					<input type="hidden" id="renameFolderId" name="id">
 
 
-		            <button type="submit">
-		                保存
-		            </button>
+					<!-- フォルダー名 -->
+					<input type="text" id="renameFolderName" name="name" placeholder="フォルダー名" required>
 
 
-		            <button type="button"
-		                    onclick="closeRenameFolderModal()">
+					<button type="submit">
+						保存
+					</button>
 
-		                キャンセル
 
-		            </button>
+					<button type="button" onclick="closeRenameFolderModal()">
 
-		        </form>
+						キャンセル
 
-		    </div>
+					</button>
+
+				</form>
+
+			</div>
 
 		</div>
 
