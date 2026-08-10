@@ -13,10 +13,6 @@
 
 	<div class="container">
 
-		<div class="page-title">
-			<h1 th:text="${video.title}">動画タイトル</h1>
-		</div>
-
 
 		<!-- =========================
 	         動画プレイヤー
@@ -115,6 +111,66 @@
 		</div>
 
 	</div>
+
+	<!-- =========================
+	     動画情報
+	========================== -->
+
+	<div class="video-info">
+
+		<!-- タイトル -->
+		<h1 class="video-title" th:text="${video.title}">
+			動画タイトル
+		</h1>
+
+
+		<!-- タグ -->
+		<div class="video-tags" th:if="${video.tags != null && !video.tags.isEmpty()}">
+
+			<a th:each="tag : ${video.tags}" th:href="@{/videos(keyword=${tag.name})}" class="video-tag"
+				th:text="'#' + ${tag.name}">
+
+				#タグ
+
+			</a>
+
+		</div>
+
+	</div>
+
+
+	<!-- =========================
+	     関連動画
+	========================== -->
+
+	<div class="related-videos" th:if="${relatedVideos != null && !relatedVideos.isEmpty()}">
+
+		<h2>関連動画</h2>
+
+
+		<div class="related-video-grid">
+
+			<div class="related-video-card" th:each="related : ${relatedVideos}">
+
+				<a th:href="@{/videos/view/{id}(id=${related.id})}">
+
+					<img th:src="@{'/thumbnails/' + ${related.thumbnailName}}" class="related-thumbnail">
+
+
+					<div class="related-title" th:text="${related.title}">
+
+						動画タイトル
+
+					</div>
+
+				</a>
+
+			</div>
+
+		</div>
+
+	</div>
+
 
 
 	<!-- CSS -->

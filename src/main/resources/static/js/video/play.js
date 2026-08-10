@@ -773,3 +773,5 @@ function updateVolumeIcon() {
 
 
 updateVolumeIcon();
+
+

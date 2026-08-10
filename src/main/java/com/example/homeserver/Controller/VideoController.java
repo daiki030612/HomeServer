@@ -47,31 +47,37 @@ public class VideoController {
 
 	@GetMapping("")
 	public String getAllVideos(
-			@RequestParam(required = false) String tagDeleteError,
-			@RequestParam(required = false) String keyword,
-			@RequestParam(defaultValue = "newest") String sort,
-			Model model) {
-
+	        @RequestParam(required = false) String tagDeleteError,
+	        @RequestParam(required = false) String keyword,
+	        @RequestParam(required = false) String tag,
+	        @RequestParam(defaultValue = "newest") String sort,
+	        Model model){
+		
 		if (tagDeleteError != null) {
 
-			model.addAttribute(
-					"tagDeleteError",
-					"このタグは動画で使用されているため削除できません。");
+		    model.addAttribute(
+		            "tagDeleteError",
+		            "このタグは動画で使用されているため削除できません。"
+		    );
 
 		}
-
+		
 		model.addAttribute("keyword", keyword);
 		model.addAttribute("sort", sort);
 
 		List<Video> videos;
 
-		if (keyword == null || keyword.isBlank()) {
+		if (tag != null && !tag.isBlank()) {
 
-			videos = videoService.getAllVideos(sort);
+		    videos = videoService.getVideosByTag(tag, sort);
+
+		} else if (keyword == null || keyword.isBlank()) {
+
+		    videos = videoService.getAllVideos(sort);
 
 		} else {
 
-			videos = videoService.searchVideos(keyword, sort);
+		    videos = videoService.searchVideos(keyword, sort);
 
 		}
 
@@ -89,17 +95,20 @@ public class VideoController {
 		model.addAttribute(
 				"folders",
 				folders);
-
+		
 		// 登録済みタグ
-		model.addAttribute(
-				"tags",
-				tagService.getAllTags());
+	    model.addAttribute(
+	            "tags",
+	            tagService.getAllTags()
+	    );
+	    
+	    List<Folder> allFolders =
+	            folderService.getAllFolders();
 
-		List<Folder> allFolders = folderService.getAllFolders();
-
-		model.addAttribute(
-				"allFolders",
-				allFolders);
+	    model.addAttribute(
+	            "allFolders",
+	            allFolders
+	    );
 
 		return "video/list";
 	}
@@ -110,87 +119,100 @@ public class VideoController {
 
 	@GetMapping("/folder/{id}")
 	public String openFolder(
-			@PathVariable Long id,
-			@RequestParam(required = false) String keyword,
-			@RequestParam(defaultValue = "newest") String sort,
-			Model model) {
+	        @PathVariable Long id,
+	        @RequestParam(required = false) String keyword,
+	        @RequestParam(defaultValue = "newest") String sort,
+	        Model model) {
 
-		// フォルダ取得
-		Folder folder = folderService.getFolderById(id);
+	    // フォルダ取得
+	    Folder folder = folderService.getFolderById(id);
 
-		// 存在しないフォルダの場合
-		if (folder == null) {
-			return "redirect:/videos";
-		}
+	    // 存在しないフォルダの場合
+	    if (folder == null) {
+	        return "redirect:/videos";
+	    }
 
-		// =========================
-		// フォルダ内動画取得
-		// =========================
+	    // =========================
+	    // フォルダ内動画取得
+	    // =========================
 
-		List<Video> videos;
+	    List<Video> videos;
 
-		if (keyword == null || keyword.isBlank()) {
+	    if (keyword == null || keyword.isBlank()) {
 
-			// 検索なし
-			videos = videoService.getVideosByFolder(id, sort);
+	        // 検索なし
+	        videos = videoService.getVideosByFolder(id, sort);
 
-		} else {
+	    } else {
 
-			// フォルダ内検索
-			videos = videoService.searchVideosByFolder(
-					id,
-					keyword,
-					sort);
-		}
+	        // フォルダ内検索
+	        videos = videoService.searchVideosByFolder(
+	                id,
+	                keyword,
+	                sort
+	        );
+	    }
 
-		// =========================
-		// フォルダ情報
-		// =========================
+	    // =========================
+	    // フォルダ情報
+	    // =========================
 
-		List<Folder> allFolders = folderService.getAllFolders();
+	    List<Folder> allFolders =
+	            folderService.getAllFolders();
 
-		model.addAttribute(
-				"allFolders",
-				allFolders);
+	    model.addAttribute(
+	            "allFolders",
+	            allFolders
+	    );
 
-		List<Folder> folders = folderService.getChildFolders(id);
+	    List<Folder> folders =
+	            folderService.getChildFolders(id);
 
-		model.addAttribute(
-				"folders",
-				folders);
+	    model.addAttribute(
+	            "folders",
+	            folders
+	    );
 
-		model.addAttribute(
-				"videos",
-				videos);
+	    model.addAttribute(
+	            "videos",
+	            videos
+	    );
 
-		// 現在のフォルダ
-		model.addAttribute(
-				"currentFolder",
-				folder);
+	    // 現在のフォルダ
+	    model.addAttribute(
+	            "currentFolder",
+	            folder
+	    );
 
-		// 検索・ソート状態
-		model.addAttribute(
-				"keyword",
-				keyword);
+	    // 検索・ソート状態
+	    model.addAttribute(
+	            "keyword",
+	            keyword
+	    );
 
-		model.addAttribute(
-				"sort",
-				sort);
+	    model.addAttribute(
+	            "sort",
+	            sort
+	    );
 
-		// 登録済みタグ
-		model.addAttribute(
-				"tags",
-				tagService.getAllTags());
+	    // 登録済みタグ
+	    model.addAttribute(
+	            "tags",
+	            tagService.getAllTags()
+	    );
 
-		// パンくず
-		List<Folder> breadcrumbs = folderService.getBreadcrumbs(id);
+	    // パンくず
+	    List<Folder> breadcrumbs =
+	            folderService.getBreadcrumbs(id);
 
-		model.addAttribute(
-				"breadcrumbs",
-				breadcrumbs);
+	    model.addAttribute(
+	            "breadcrumbs",
+	            breadcrumbs
+	    );
 
-		return "video/list";
+	    return "video/list";
 	}
+
 
 	// =========================
 	// 動画再生
@@ -231,22 +253,27 @@ public class VideoController {
 
 	@GetMapping("/view/{id}")
 	public String viewVideo(
-			@PathVariable Long id,
-			Model model) {
+	        @PathVariable Long id,
+	        Model model) {
 
-		Video video = videoService.getVideoById(id);
+	    Video video =
+	            videoService.getVideoById(id);
 
-		if (video == null) {
+	    if (video == null) {
+	        return "redirect:/videos";
+	    }
 
-			return "redirect:/videos";
+	    // 現在の動画
+	    model.addAttribute(
+	            "video",
+	            video);
 
-		}
+	    // 関連動画
+	    model.addAttribute(
+	            "relatedVideos",
+	            videoService.getRelatedVideos(id));
 
-		model.addAttribute(
-				"video",
-				video);
-
-		return "video/play";
+	    return "video/play";
 	}
 
 	// =========================
@@ -266,21 +293,21 @@ public class VideoController {
 
 	@PostMapping("/upload")
 	public String upload(
-			@RequestParam("file") MultipartFile file,
-			@RequestParam(value = "folderId", required = false) Long folderId) {
+	        @RequestParam("file") MultipartFile file,
+	        @RequestParam(value = "folderId", required = false) Long folderId) {
 
-		System.out.println("① Controller開始");
-		System.out.println("folderId = " + folderId);
+	    System.out.println("① Controller開始");
+	    System.out.println("folderId = " + folderId);
 
-		videoService.upload(file, folderId);
+	    videoService.upload(file, folderId);
 
-		System.out.println("② Service完了");
+	    System.out.println("② Service完了");
 
-		if (folderId != null) {
-			return "redirect:/videos/folder/" + folderId;
-		}
+	    if (folderId != null) {
+	        return "redirect:/videos/folder/" + folderId;
+	    }
 
-		return "redirect:/videos";
+	    return "redirect:/videos";
 	}
 	// =========================
 	// 動画削除
@@ -321,34 +348,37 @@ public class VideoController {
 
 	@PostMapping("/edit")
 	public String editVideo(
-			@RequestParam Long id,
-			@RequestParam String title,
-			@RequestParam(required = false) String tags) {
+	        @RequestParam Long id,
+	        @RequestParam String title,
+	        @RequestParam(required = false) String tags
+	) {
 
-		videoService.updateVideo(
-				id,
-				title,
-				tags);
+	    videoService.updateVideo(
+	            id,
+	            title,
+	            tags
+	    );
 
-		return "redirect:/videos";
+	    return "redirect:/videos";
 	}
-
+	
 	// =========================
 	// タグ削除
 	// =========================
 
 	@GetMapping("/tag/delete/{id}")
 	public String deleteTag(
-			@PathVariable Long id,
-			Model model) {
+	        @PathVariable Long id,
+	        Model model) {
 
-		boolean deleted = tagService.deleteTag(id);
-		if (!deleted) {
+	    boolean deleted =
+	            tagService.deleteTag(id);
+	    if (!deleted) {
 
-			return "redirect:/videos?tagDeleteError";
+	        return "redirect:/videos?tagDeleteError";
 
-		}
-		return "redirect:/videos";
+	    }
+	    return "redirect:/videos";
 
 	}
 
@@ -358,14 +388,16 @@ public class VideoController {
 
 	@PostMapping("/move")
 	public String moveVideo(
-			@RequestParam Long videoId,
-			@RequestParam(required = false) Long folderId) {
+	        @RequestParam Long videoId,
+	        @RequestParam(required = false) Long folderId) {
 
-		videoService.moveVideo(
-				videoId,
-				folderId);
+	    videoService.moveVideo(
+	            videoId,
+	            folderId
+	    );
 
-		return "redirect:/videos";
+	    return "redirect:/videos";
 	}
+
 
 }

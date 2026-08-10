@@ -480,5 +480,65 @@ public class VideoService {
 						keyword,
 						sortOption);
 	}
+	
+	// =========================
+	// 関連動画取得
+	// =========================
+
+	public List<Video> getRelatedVideos(Long videoId) {
+
+	    Video video = videoRepository
+	            .findById(videoId)
+	            .orElse(null);
+
+	    if (video == null || video.getTags().isEmpty()) {
+	        return List.of();
+	    }
+
+	    List<String> tagNames =
+	            video.getTags()
+	                 .stream()
+	                 .map(Tag::getName)
+	                 .toList();
+
+	    return videoRepository.findRelatedVideos(
+	            videoId,
+	            tagNames
+	    );
+	}
+	
+	public List<Video> getVideosByTag(
+	        String tag,
+	        String sort) {
+
+	    Sort sortOption;
+
+	    if ("oldest".equals(sort)) {
+
+	        sortOption =
+	                Sort.by("createdAt").ascending();
+
+	    } else if ("nameAsc".equals(sort)) {
+
+	        sortOption =
+	                Sort.by("title").ascending();
+
+	    } else if ("nameDesc".equals(sort)) {
+
+	        sortOption =
+	                Sort.by("title").descending();
+
+	    } else {
+
+	        sortOption =
+	                Sort.by("createdAt").descending();
+
+	    }
+
+	    return videoRepository.findByTag(
+	            tag,
+	            sortOption
+	    );
+	}
 
 }
