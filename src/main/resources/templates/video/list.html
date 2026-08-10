@@ -14,71 +14,82 @@
 	<div class="container">
 
 		<!-- =========================
-		     パンくずリスト
-		     ========================= -->
+     パンくずリスト
+     ========================= -->
 
-		<div class="breadcrumb" th:if="${currentFolder != null}">
+		<div class="breadcrumb">
 
-			<a href="/videos">
+			<!-- Videos = ルートフォルダー -->
+			<a href="/videos" class="breadcrumb-root" ondragover="allowBreadcrumbDrop(event, this)"
+				ondragenter="enterBreadcrumbDrop(event, this)" ondragleave="leaveBreadcrumbDrop(event, this)"
+				ondrop="dropBreadcrumbVideo(event, this)">
+
 				Videos
+
 			</a>
 
-			<span>/</span>
 
-			<span th:each="folder, stat : ${breadcrumbs}">
+			<!-- 現在フォルダーがある場合 -->
+			<span th:if="${currentFolder != null}">
 
-				<a th:if="${!stat.last}" th:href="@{/videos/folder/{id}(id=${folder.id})}" th:text="${folder.name}">
-					フォルダー
-				</a>
+				<span th:each="folder, stat : ${breadcrumbs}">
 
-				<span th:if="${stat.last}" th:text="${folder.name}">
-					現在のフォルダー
-				</span>
+					<span>/</span>
 
-				<span th:if="${!stat.last}">
-					/
+
+					<!-- 現在フォルダー以外 -->
+					<a th:if="${!stat.last}" th:href="@{/videos/folder/{id}(id=${folder.id})}" th:text="${folder.name}"
+						class="breadcrumb-folder" th:attr="data-id=${folder.id}"
+						ondragover="allowBreadcrumbDrop(event, this)" ondragenter="enterBreadcrumbDrop(event, this)"
+						ondragleave="leaveBreadcrumbDrop(event, this)" ondrop="dropBreadcrumbVideo(event, this)">
+
+						フォルダー
+
+					</a>
+
+
+					<!-- 現在のフォルダー -->
+					<span th:if="${stat.last}" th:text="${folder.name}">
+
+						現在のフォルダー
+
+					</span>
+
 				</span>
 
 			</span>
 
 		</div>
 
+
+
 		<form class="header-search" method="get">
 
-		    <input type="text"
-		           name="keyword"
-		           placeholder="動画を検索..."
-				   class="search-input"
-		           th:value="${keyword}">
+			<input type="text" name="keyword" placeholder="動画を検索..." class="search-input" th:value="${keyword}">
 
-		    <button type="submit" class="search-button">
-		        🔍
-		    </button>
+			<button type="submit" class="search-button">
+				🔍
+			</button>
 
-		    <select name="sort"
-		            onchange="this.form.submit()">
+			<select name="sort" onchange="this.form.submit()">
 
-		        <option value="newest"
-		                th:selected="${sort == 'newest'}">
-		            新しい順
-		        </option>
+				<option value="newest" th:selected="${sort == 'newest'}">
+					新しい順
+				</option>
 
-		        <option value="oldest"
-		                th:selected="${sort == 'oldest'}">
-		            古い順
-		        </option>
+				<option value="oldest" th:selected="${sort == 'oldest'}">
+					古い順
+				</option>
 
-		        <option value="nameAsc"
-		                th:selected="${sort == 'nameAsc'}">
-		            名前順
-		        </option>
+				<option value="nameAsc" th:selected="${sort == 'nameAsc'}">
+					名前順
+				</option>
 
-		        <option value="nameDesc"
-		                th:selected="${sort == 'nameDesc'}">
-		            名前逆順
-		        </option>
+				<option value="nameDesc" th:selected="${sort == 'nameDesc'}">
+					名前逆順
+				</option>
 
-		    </select>
+			</select>
 
 		</form>
 		<!-- ページタイトル -->
@@ -101,9 +112,11 @@
 		<!-- フォルダ一覧 -->
 		<div class="folder-grid">
 
-			<div class="folder-card" th:each="folder : ${folders}" oncontextmenu="openFolderMenu(event, this)"
-				ontouchstart="startFolderLongPress(event, this)" ontouchend="cancelFolderLongPress()"
-				ontouchmove="cancelFolderLongPress()">
+			<div class="folder-card" th:each="folder : ${folders}" th:data-id="${folder.id}"
+				oncontextmenu="openFolderMenu(event, this)" ontouchstart="startFolderLongPress(event, this)"
+				ontouchend="cancelFolderLongPress()" ontouchmove="cancelFolderLongPress()"
+				ondragover="allowVideoDrop(event, this)" ondragenter="enterVideoDrop(event, this)"
+				ondragleave="leaveVideoDrop(event, this)" ondrop="dropVideo(event, this)">
 
 				<a class="folder-link" th:href="@{/videos/folder/{id}(id=${folder.id})}">
 
@@ -146,7 +159,8 @@
 
 			<div class="video-container">
 
-				<div class="video-card" th:each="video : ${videos}">
+				<div class="video-card" th:each="video : ${videos}" draggable="true" th:data-id="${video.id}"
+					ondragstart="dragVideo(event, this)" ondragend="dragVideoEnd(event, this)">
 
 					<!-- 動画サムネイル -->
 					<a class="thumbnail-link" th:href="@{/videos/view/{id}(id=${video.id})}">
@@ -199,8 +213,10 @@
 
 
 							<!-- 動画削除 -->
-							<a th:href="@{/videos/delete/{id}(id=${video.id})}"
+							<a th:href="@{/videos/delete/{id}(id=${video.id},
+							          parentId=${currentFolder != null ? currentFolder.id : null})}"
 								onclick="return confirm('この動画を削除しますか？');">
+
 
 								削除
 
@@ -406,6 +422,7 @@
 
 					<!-- フォルダーID -->
 					<input type="hidden" id="renameFolderId" name="id">
+					<input type="hidden" name="parentId" th:value="${currentFolder != null ? currentFolder.id : ''}">
 
 
 					<!-- フォルダー名 -->

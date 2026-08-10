@@ -852,3 +852,306 @@ function deleteFolder(event, button) {
         "/folders/delete/" + id;
 
 }
+
+// =========================
+// 動画ドラッグ＆ドロップ
+// =========================
+
+let draggedVideoId = null;
+
+
+// ドラッグ開始
+function dragVideo(event, card) {
+
+    draggedVideoId = card.dataset.id;
+
+    event.dataTransfer.effectAllowed = "move";
+
+    event.dataTransfer.setData(
+        "text/plain",
+        draggedVideoId
+    );
+
+    card.classList.add("dragging");
+}
+
+
+// ドラッグ終了
+function dragVideoEnd(event, card) {
+
+    card.classList.remove("dragging");
+
+    document
+        .querySelectorAll(".folder-card")
+        .forEach(function(folder) {
+
+            folder.classList.remove("drag-over");
+
+        });
+
+    draggedVideoId = null;
+}
+
+
+// フォルダー上にいる間
+function allowVideoDrop(event, folder) {
+
+    event.preventDefault();
+
+    event.dataTransfer.dropEffect = "move";
+
+}
+
+
+// フォルダー上に入った
+function enterVideoDrop(event, folder) {
+
+    event.preventDefault();
+
+    folder.classList.add("drag-over");
+}
+
+
+// フォルダーから出た
+function leaveVideoDrop(event, folder) {
+
+    // フォルダー内部の子要素へ移動しただけなら
+    // 緑枠を消さない
+    if (folder.contains(event.relatedTarget)) {
+        return;
+    }
+
+    folder.classList.remove("drag-over");
+}
+
+
+// ドロップ
+function dropVideo(event, folder) {
+
+    event.preventDefault();
+
+    folder.classList.remove("drag-over");
+
+    const videoId =
+        event.dataTransfer.getData("text/plain");
+
+    const folderId =
+        folder.dataset.id;
+
+    if (!videoId || !folderId) {
+        return;
+    }
+
+    moveVideoToFolder(
+        videoId,
+        folderId
+    );
+}
+
+
+// =========================
+// 実際に動画を移動
+// =========================
+
+function moveVideoToFolder(videoId, folderId) {
+
+    const formData = new FormData();
+
+    formData.append(
+        "videoId",
+        videoId
+    );
+
+
+    // フォルダーIDがある場合だけ送信
+    if (folderId !== null && folderId !== undefined) {
+
+        formData.append(
+            "folderId",
+            folderId
+        );
+
+    }
+
+
+    fetch(
+        "/videos/move",
+        {
+            method: "POST",
+            body: formData
+        }
+    )
+        .then(function(response) {
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "動画の移動に失敗しました"
+                );
+
+            }
+
+            // 移動後に画面更新
+            window.location.reload();
+
+        })
+        .catch(function(error) {
+
+            console.error(error);
+
+            alert(
+                "動画の移動に失敗しました。"
+            );
+
+        });
+
+}
+
+// =========================
+// パンくずへ動画をドロップ
+// =========================
+
+function dropVideoToBreadcrumb(event, breadcrumb) {
+
+    event.preventDefault();
+
+    const videoId =
+        event.dataTransfer.getData("text/plain");
+
+    const folderId =
+        breadcrumb.dataset.id;
+
+    if (!videoId || !folderId) {
+        return;
+    }
+
+    moveVideoToFolder(
+        videoId,
+        folderId
+    );
+}
+
+// =========================
+// パンくずへ動画をドロップ
+// =========================
+
+function dropVideoToBreadcrumb(event, breadcrumb) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const videoId =
+        event.dataTransfer.getData("text/plain");
+
+    const folderId =
+        breadcrumb.dataset.id;
+
+    console.log("パンくずへドロップ");
+    console.log("videoId =", videoId);
+    console.log("folderId =", folderId);
+
+    if (!videoId || !folderId) {
+        console.log("ID取得失敗");
+        return;
+    }
+
+    moveVideoToFolder(
+        videoId,
+        folderId
+    );
+}
+
+// =========================
+// パンくずへの動画ドラッグ＆ドロップ
+// =========================
+
+// パンくず上にいる間
+function allowBreadcrumbDrop(event, element) {
+
+    event.preventDefault();
+
+    event.dataTransfer.dropEffect = "move";
+}
+
+
+// パンくずに入った
+function enterBreadcrumbDrop(event, element) {
+
+    event.preventDefault();
+
+    element.classList.add("drag-over");
+}
+
+
+// パンくずから出た
+function leaveBreadcrumbDrop(event, element) {
+
+    // パンくず内部の子要素へ移動しただけなら
+    // 緑枠を消さない
+    if (element.contains(event.relatedTarget)) {
+        return;
+    }
+
+    element.classList.remove("drag-over");
+}
+
+
+// パンくずにドロップ
+function dropBreadcrumbVideo(event, element) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    element.classList.remove("drag-over");
+
+    const videoId =
+        event.dataTransfer.getData("text/plain");
+
+    if (!videoId) {
+        console.log("動画ID取得失敗");
+        return;
+    }
+
+
+    // =========================
+    // Videos = ルートへ移動
+    // =========================
+
+    if (element.classList.contains("breadcrumb-root")) {
+
+        console.log("ルートへ移動");
+        console.log("videoId =", videoId);
+
+        moveVideoToFolder(
+            videoId,
+            null
+        );
+
+        return;
+    }
+
+
+    // =========================
+    // フォルダーへ移動
+    // =========================
+
+    const folderId =
+        element.dataset.id;
+
+    if (!folderId) {
+
+        console.log("フォルダーID取得失敗");
+
+        return;
+    }
+
+    console.log("フォルダーへ移動");
+    console.log("videoId =", videoId);
+    console.log("folderId =", folderId);
+
+
+    moveVideoToFolder(
+        videoId,
+        folderId
+    );
+}

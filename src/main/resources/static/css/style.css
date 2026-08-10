@@ -1242,3 +1242,25 @@ body {
 .search-button {
     display: none;
 }
+
+.video-card.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.folder-card.drag-over {
+    transform: scale(1.05);
+    outline: 3px solid #4caf50;
+    background-color: rgba(76, 175, 80, 0.15);
+}
+
+.breadcrumb-folder {
+    display: inline-block;
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+
+.breadcrumb-folder.drag-over {
+    outline: 2px solid #4caf50;
+    background-color: rgba(76, 175, 80, 0.15);
+}
