@@ -7,10 +7,55 @@
 		<a href="/videos" class="logo">Home Server</a>
 
 		<nav class="nav">
-			<a href="/videos">Videos</a>
-			<a href="/videos/upload">Upload</a>
+
+			<!-- スマホ用ハンバーガーボタン -->
+			<button type="button" class="hamburger-button" onclick="toggleMobileMenu()">
+				☰
+			</button>
+
+
+			<div class="mobile-menu">
+
+				<a href="/videos">
+					Videos
+				</a>
+
+
+				<!-- 検索 -->
+				<form class="header-search" action="/videos" method="get">
+
+					<input type="text" name="keyword" placeholder="動画を検索..." th:value="${keyword}">
+
+					<button type="submit">
+						🔍
+					</button>
+
+				</form>
+
+
+				<a th:href="@{/videos/upload(
+				    folderId=${currentFolder != null ? currentFolder.id : null}
+				)}">
+					Upload
+				</a>
+
+			</div>
+
 		</nav>
-	</div>
+
+
+		<script>
+
+			function toggleMobileMenu() {
+
+				const menu =
+					document.querySelector(".mobile-menu");
+
+				menu.classList.toggle("show");
+
+			}
+
+		</script>
 </header>
 
 </html>

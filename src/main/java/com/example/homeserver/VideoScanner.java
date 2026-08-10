@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.example.homeserver.Entity.Video;
+import com.example.homeserver.Repository.VideoRepository;
 import com.example.homeserver.Service.ThumbnailService;
 
 

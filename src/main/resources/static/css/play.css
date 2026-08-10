@@ -1,0 +1,350 @@
+/* =========================
+   動画プレイヤー
+========================= */
+
+.video-player-container {
+
+	position: relative;
+
+	width: 100%;
+	max-width: 1000px;
+
+	margin: 0 auto;
+
+	background: black;
+
+	overflow: hidden;
+
+}
+
+
+/* =========================
+   動画
+========================= */
+
+#videoPlayer {
+
+	width: 100%;
+
+	display: block;
+
+	background: black;
+
+	transform-origin: center center;
+
+}
+
+
+/* =========================
+   中央再生ボタン
+========================= */
+
+.center-play-button {
+
+	position: absolute;
+
+	top: 50%;
+	left: 50%;
+
+	transform:
+		translate(-50%, -50%);
+
+	width: 80px;
+	height: 80px;
+
+	border: none;
+	border-radius: 50%;
+
+	background:
+		rgba(0, 0, 0, 0.65);
+
+	color: white;
+
+	font-size: 32px;
+
+	cursor: pointer;
+
+	z-index: 5;
+
+}
+
+
+/* =========================
+   2倍速表示
+========================= */
+
+.speed-indicator {
+
+	position: absolute;
+
+	top: 50%;
+	left: 50%;
+
+	transform:
+		translate(-50%, -50%);
+
+	padding: 15px 25px;
+
+	background:
+		rgba(0, 0, 0, 0.75);
+
+	color: white;
+
+	font-size: 28px;
+	font-weight: bold;
+
+	border-radius: 12px;
+
+	pointer-events: none;
+
+	opacity: 0;
+
+	transition:
+		opacity 0.15s;
+
+	z-index: 10;
+
+}
+
+
+.speed-indicator.show {
+
+	opacity: 1;
+
+}
+
+
+/* =========================
+   コントロール
+========================= */
+
+.controls {
+
+	position: absolute;
+
+	left: 0;
+	right: 0;
+	bottom: 0;
+
+	padding: 10px 14px;
+
+	background:
+		linear-gradient(transparent,
+			rgba(0, 0, 0, 0.85));
+
+	z-index: 20;
+
+}
+
+
+/* =========================
+   シークバー
+========================= */
+
+.seek-bar {
+
+	width: 100%;
+
+	height: 4px;
+
+	margin-bottom: 8px;
+
+	cursor: pointer;
+
+	accent-color: #ff0000;
+
+}
+
+
+/* =========================
+   コントロール下段
+========================= */
+
+.control-bottom {
+
+	display: flex;
+
+	align-items: center;
+
+	gap: 8px;
+
+}
+
+
+/* =========================
+   コントロールボタン
+========================= */
+
+.control-button {
+
+	display: flex;
+
+	align-items: center;
+	justify-content: center;
+
+	width: 36px;
+	height: 36px;
+
+	padding: 0;
+
+	border: none;
+
+	background: transparent;
+
+	color: white;
+
+	font-size: 18px;
+
+	cursor: pointer;
+
+}
+
+
+.control-button:hover {
+
+	background:
+		rgba(255, 255, 255, 0.15);
+
+	border-radius: 50%;
+
+}
+
+
+/* 全画面ボタンを右端へ */
+
+#fullscreenButton {
+
+	margin-left: auto;
+
+}
+
+
+/* =========================
+   時間表示
+========================= */
+
+.time-display {
+
+	color: white;
+
+	font-size: 13px;
+
+	white-space: nowrap;
+
+}
+
+
+/* =========================
+   音量
+========================= */
+
+.volume-control {
+
+	position: relative;
+
+	display: flex;
+
+	align-items: center;
+
+}
+
+
+/* 音量ボタン */
+
+.volume-button {
+
+	width: 36px;
+
+	flex-shrink: 0;
+
+	position: relative;
+
+	z-index: 2;
+
+}
+
+
+/* 音量バー */
+
+.volume-bar {
+
+	width: 0;
+
+	opacity: 0;
+
+	margin-left: 0;
+
+	cursor: pointer;
+
+	transition:
+		width 0.2s ease,
+		opacity 0.2s ease,
+		margin-left 0.2s ease;
+
+}
+
+
+/* PCではホバーで表示 */
+
+.volume-control:hover .volume-bar {
+
+	width: 80px;
+
+	opacity: 1;
+
+	margin-left: 5px;
+
+}
+
+
+/* =========================
+   スマホ
+========================= */
+
+@media (max-width: 600px) {
+
+	.controls {
+
+		padding: 8px 10px;
+
+	}
+
+
+	.control-button {
+
+		width: 34px;
+		height: 34px;
+
+	}
+
+
+	.time-display {
+
+		font-size: 12px;
+
+	}
+
+
+	.center-play-button {
+
+		width: 65px;
+		height: 65px;
+
+		font-size: 26px;
+
+	}
+
+
+	/* スマホではボタン操作で音量バー表示 */
+
+	.volume-control.show-volume .volume-bar {
+
+		width: 70px;
+
+		opacity: 1;
+
+		margin-left: 5px;
+
+	}
+
+}

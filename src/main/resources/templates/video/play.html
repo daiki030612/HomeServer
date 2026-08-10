@@ -9,22 +9,122 @@
 </head>
 
 <body>
-
 	<div th:replace="~{fragments/header :: header}"></div>
 
-	<div class="player-container">
-		<h1 class="video-heading" th:text="${video.title}">動画タイトル</h1>
-		<div class="video-player-card">
-			<video controls class="video-player">
-				<source
-					th:src="@{/videos/play/{id}(id=${video.id})}"
-					type="video/mp4">
-				お使いのブラウザは動画を再生できません。
-			</video>
+	<div class="container">
+
+		<div class="page-title">
+			<h1 th:text="${video.title}">動画タイトル</h1>
 		</div>
 
-		<a class="back-button" href="/videos">← 一覧へ戻る</a>
+
+		<!-- =========================
+	         動画プレイヤー
+	    ========================== -->
+
+		<div id="videoPlayerContainer" class="video-player-container">
+
+			<video id="videoPlayer" th:src="@{'/videos/play/' + ${video.id}}" playsinline preload="metadata">
+
+				お使いのブラウザは動画再生に対応していません。
+
+			</video>
+
+
+			<!-- 中央再生ボタン -->
+
+			<button id="centerPlayButton" class="center-play-button" type="button">
+
+				▶
+
+			</button>
+
+
+			<!-- 2倍速表示 -->
+
+			<div id="speedIndicator" class="speed-indicator">
+
+				×2
+
+			</div>
+
+
+			<!-- =========================
+	             コントロール
+	        ========================== -->
+
+			<div class="controls">
+
+				<!-- シークバー -->
+
+				<input id="seekBar" class="seek-bar" type="range" min="0" max="10000" value="0" step="1">
+
+
+				<div class="control-bottom">
+
+					<!-- 再生 / 一時停止 -->
+
+					<button id="playButton" class="control-button" type="button">
+
+						▶
+
+					</button>
+
+
+					<!-- 再生時間 -->
+
+					<div class="time-display">
+
+						<span id="currentTime">0:00</span>
+
+						<span>/</span>
+
+						<span id="duration">0:00</span>
+
+					</div>
+
+
+					<!-- 音量 -->
+
+					<div class="volume-control">
+
+						<button id="muteButton" class="control-button volume-button" type="button">
+
+							🔊
+
+						</button>
+
+
+						<input id="volumeBar" class="volume-bar" type="range" min="0" max="100" value="100" step="1">
+
+					</div>
+
+
+					<!-- 全画面 -->
+
+					<button id="fullscreenButton" class="control-button" type="button">
+
+						⛶
+
+					</button>
+
+				</div>
+
+			</div>
+
+		</div>
+
 	</div>
+
+
+	<!-- CSS -->
+
+	<link rel="stylesheet" th:href="@{/css/play.css}">
+
+
+	<!-- JavaScript -->
+
+	<script th:src="@{/js/video/play.js}"></script>
 
 </body>
 

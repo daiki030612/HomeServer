@@ -6,90 +6,92 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Upload Video</title>
 	<link rel="stylesheet" th:href="@{/css/style.css}">
+	<link rel="stylesheet" th:href="@{/css/upload.css}">
 </head>
 
 <body>
-
 	<div th:replace="~{fragments/header :: header}"></div>
 
 
 	<main class="upload-page">
 
-
 		<section class="upload-card">
 
-
-			<h1>
-				Upload Video
-			</h1>
-
+			<h1>Upload Video</h1>
 
 			<p class="upload-description">
 				お気に入りの動画をHome Serverへ追加します
 			</p>
 
-
-
-			<form method="post" enctype="multipart/form-data" action="/videos/upload">
-
+			<form id="upload-form" enctype="multipart/form-data">
+				<input type="hidden"
+				       id="folderId"
+				       name="folderId"
+				       th:value="${currentFolder != null ? currentFolder.id : ''}">
 
 				<div class="file-area">
 
-
 					<input id="file" type="file" name="file" accept="video/*" required>
-
-
-
-
-
 
 					<div class="upload-icon">
 						🎬
 					</div>
 
 					<div class="select-video-container">
+
 						<label for="file" class="file-label">
+
 							<div class="select-video-button">
 								動画を選択
 							</div>
+
 						</label>
+
 					</div>
 
-
-
-					<span id="file-name"></span>
-
+					<span id="file-name">
+						動画を選択してください
+					</span>
 
 				</div>
 
+				<button id="upload-button" type="submit" class="upload-button">
 
-
-				<button class="upload-button">
 					アップロード
+
 				</button>
-
-
 
 			</form>
 
 
-		</section>
+			<!-- アップロード進捗 -->
 
+			<div id="progress-area" class="progress-area">
+
+				<p id="progress-text">
+					アップロード中... 0%
+				</p>
+
+				<div class="progress-bar-background">
+
+					<div id="progress-bar" class="progress-bar">
+					</div>
+
+				</div>
+
+				<p id="progress-size">
+					0 MB / 0 MB
+				</p>
+
+			</div>
+
+		</section>
 
 	</main>
 
-	<script>
-		const fileInput = document.getElementById("file");
-		const fileName = document.getElementById("file-name");
 
-		fileInput.addEventListener("change", function () {
-			if (this.files.length > 0) {
-				fileName.textContent = this.files[0].name;
-			} else {
-				fileName.textContent = "動画を選択してください";
-			}
-		});
-	</script>
+	<!-- アップロード用JavaScript -->
+	<script th:src="@{/js/video/upload.js}"></script>
 
 </body>
 

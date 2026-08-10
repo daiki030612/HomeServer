@@ -9,201 +9,238 @@
 </head>
 
 <body>
-
 	<div th:replace="~{fragments/header :: header}"></div>
 
 	<div class="container">
 
-	    <div class="page-title">
-	        <h1>Videos</h1>
-	        <p>Your personal video library</p>
-	    </div>
+		<!-- ページタイトル -->
+		<div class="page-title">
+
+			<button type="button" onclick="openFolderModal()">
+				📁 新しいフォルダ
+			</button>
+
+			<h1>Videos</h1>
+
+			<p>Your personal video library</p>
+
+		</div>
 
 
-	    <div class="video-grid">
-
-	        <div class="video-container">
-
-	            <div class="video-card"
-	                 th:each="video : ${videos}">
+		<!-- タグ削除エラー -->
+		<div class="tag-delete-error" th:if="${tagDeleteError}" th:text="${tagDeleteError}">
+		</div>
 
 
-	                <!-- 動画部分 -->
-	                <a class="thumbnail-link"
-	                   th:href="@{/videos/view/{id}(id=${video.id})}">
+		<!-- フォルダ一覧 -->
+		<div class="folder-grid">
 
-	                    <img class="thumbnail"
-	                         th:src="@{'/thumbnails/' + ${video.thumbnailName}}">
+			<div class="folder-card" th:each="folder : ${folders}">
 
+				<a class="folder-link" th:href="@{/videos/folder/{id}(id=${folder.id})}">
 
-	                    <div class="play-overlay">
-	                        ▶
-	                    </div>
+					<div class="folder-icon"></div>
 
+					<div class="folder-name" th:text="${folder.name}">
+						フォルダ名
+					</div>
 
-	                    <!-- PCのみ表示 -->
-	                    <div class="title-overlay"
-	                         th:text="${video.title}">
-	                        動画タイトル
-	                    </div>
+				</a>
 
-	                </a>
+			</div>
+
+		</div>
 
 
+		<!-- 動画一覧 -->
+		<div class="video-grid">
 
-	                <!-- 右下メニュー -->
-	                <div class="video-menu">
+			<div class="video-container">
 
-	                    <button type="button"
-	                            class="menu-button"
-	                            onclick="toggleMenu(event,this)">
-								<span class="pc-menu">…</span>
-								    <span class="sp-menu">⋮</span>
-	                    </button>
+				<div class="video-card" th:each="video : ${videos}">
+
+					<!-- 動画サムネイル -->
+					<a class="thumbnail-link" th:href="@{/videos/view/{id}(id=${video.id})}">
+
+						<img class="thumbnail" th:src="@{'/thumbnails/' + ${video.thumbnailName}}">
+
+						<div class="play-overlay">
+							▶
+						</div>
+
+						<!-- PCのみ表示 -->
+						<div class="title-overlay" th:text="${video.title}">
+							動画タイトル
+						</div>
+
+					</a>
 
 
-	                    <div class="menu-dropdown">
+					<!-- 動画メニュー -->
+					<div class="video-menu">
 
-							<a href="#"
-							   th:attr="onclick=|openEditModal(${video.id}, '${video.title}')|">
-							    ✏️ 名前を変更
+						<button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+
+							<span class="pc-menu">…</span>
+							<span class="sp-menu">⋮</span>
+
+						</button>
+
+
+						<div class="menu-dropdown">
+
+							<!-- 名前・タグ編集 -->
+							<a href="#" class="edit-video-button" th:data-id="${video.id}"
+								th:data-title="${video.title}"
+								th:data-tags="${#strings.listJoin(video.tags.![name], ',')}"
+								onclick="openEditModalFromButton(event, this)">
+
+								名前・タグを編集
+
 							</a>
 
 
-	                        <a th:href="@{/videos/delete/{id}(id=${video.id})}"
-	                           onclick="return confirm('この動画を削除しますか？');">
-	                            🗑 削除
-	                        </a>
+							<!-- 動画削除 -->
+							<a th:href="@{/videos/delete/{id}(id=${video.id})}"
+								onclick="return confirm('この動画を削除しますか？');">
 
-	                    </div>
+								削除
 
-	                </div>
+							</a>
+
+						</div>
+
+					</div>
+
+				</div>
+
+			</div>
+
+		</div>
 
 
-	            </div>
+		<!-- =========================
+	         動画編集モーダル
+	         ========================= -->
 
-	        </div>
+		<div id="editModal" class="modal">
 
-	    </div>
+			<div class="modal-content">
+
+				<h2>動画を編集</h2>
+
+
+				<form th:action="@{/videos/edit}" method="post">
+
+					<!-- 動画ID -->
+					<input type="hidden" id="editId" name="id">
+
+
+					<!-- タイトル -->
+					<input type="text" id="editTitle" name="title" placeholder="動画タイトル" required>
+
+
+					<!-- タグ -->
+					<div class="tag-input-wrapper">
+
+						<!-- 選択中のタグ -->
+						<div id="tag-chips" class="tag-chips">
+						</div>
+
+
+						<!-- タグ入力 -->
+						<input type="text" id="tagInput" class="tag-input" placeholder="タグを入力してEnter"
+							autocomplete="off">
+
+
+						<!-- Spring Bootへ送信 -->
+						<input type="hidden" id="editTags" name="tags">
+
+
+						<!-- 過去に登録したタグ -->
+						<div id="tag-suggestions" class="tag-suggestions">
+
+							<div class="tag-suggestion" th:each="tag : ${tags}" th:data-tag="${tag.name}">
+
+								<span th:text="${tag.name}">
+									タグ名
+								</span>
+
+
+								<!-- タグ削除 -->
+								<a class="tag-delete-button" th:href="@{/videos/tag/delete/{id}(id=${tag.id})}"
+									th:attr="data-tag=${tag.name}" onclick="
+	                                   if (currentTags.includes(this.dataset.tag)) {
+	                                       alert('このタグは現在選択されているため削除できません。');
+	                                       return false;
+	                                   }
+
+	                                   return confirm('このタグを削除しますか？');
+	                               " onmousedown="event.stopPropagation();">
+
+									×
+
+								</a>
+
+							</div>
+
+						</div>
+
+					</div>
+
+
+					<button type="submit">
+						保存
+					</button>
+
+					<button type="button" onclick="closeEditModal()">
+						キャンセル
+					</button>
+
+				</form>
+
+			</div>
+
+		</div>
+
+		<!-- =========================
+		     フォルダ作成モーダル
+		     ========================= -->
+
+		<div id="folderModal" class="modal">
+
+			<div class="modal-content">
+
+				<h2>新しいフォルダ</h2>
+
+				<form th:action="@{/folders/create}" method="post">
+
+					<!-- 現在のフォルダID -->
+					<input type="hidden" name="parentId" th:value="${currentFolder != null ? currentFolder.id : ''}">
+
+					<!-- フォルダ名 -->
+					<input type="text" name="name" placeholder="フォルダ名" required>
+
+					<button type="submit">
+						作成
+					</button>
+
+					<button type="button" onclick="closeFolderModal()">
+						キャンセル
+					</button>
+
+				</form>
+
+			</div>
+
+		</div>
+
+
+		<!-- JavaScript -->
+		<script th:src="@{/js/video/video-list.js}"></script>
 
 	</div>
-	
-	<!-- 編集モーダル -->
 
-	<div id="editModal"
-	     class="modal">
-
-
-	    <div class="modal-content">
-
-	        <h2>
-	            名前変更
-	        </h2>
-
-
-	        <form th:action="@{/videos/edit}"
-	              method="post">
-
-
-	            <input type="hidden"
-	                   id="editId"
-	                   name="id">
-
-
-	            <input type="text"
-	                   id="editTitle"
-	                   name="title">
-
-
-	            <button type="submit">
-	                保存
-	            </button>
-
-
-	            <button type="button"
-	                    onclick="closeEditModal()">
-	                キャンセル
-	            </button>
-
-
-	        </form>
-
-	    </div>
-
-	</div>
-
-
-
-	<script>
-
-	function toggleMenu(event, button) {
-
-	    event.preventDefault();
-	    event.stopPropagation();
-
-
-	    const menu = button.nextElementSibling;
-
-
-	    document
-	        .querySelectorAll(".menu-dropdown")
-	        .forEach(function(otherMenu){
-
-	            if(otherMenu !== menu){
-
-	                otherMenu.classList.remove("show");
-
-	            }
-
-	        });
-
-
-	    menu.classList.toggle("show");
-
-	}
-
-
-
-	document.addEventListener("click",function(event){
-
-	    if(!event.target.closest(".video-menu")){
-
-	        document
-	            .querySelectorAll(".menu-dropdown")
-	            .forEach(function(menu){
-
-	                menu.classList.remove("show");
-
-	            });
-
-	    }
-
-	});
-	
-	function openEditModal(id,title){
-
-	    document.getElementById("editId").value = id;
-
-	    document.getElementById("editTitle").value = title;
-
-
-	    document
-	        .getElementById("editModal")
-	        .classList.add("show");
-
-	}
-
-
-
-	function closeEditModal(){
-
-	    document
-	        .getElementById("editModal")
-	        .classList.remove("show");
-
-	}
-
-	</script>
 </body>
 
 </html>

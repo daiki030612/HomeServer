@@ -16,11 +16,7 @@ public class ThumbnailService {
 			File file = new File(outputPath);
 			file.getParentFile().mkdirs();
 
-			// 動画時間取得
-			double duration = getVideoDuration(videoPath);
-
-			// 30%地点
-			double thumbnailTime = duration * 0.3;
+			String thumbnailTime = "5";
 
 			ProcessBuilder builder = new ProcessBuilder(
 					"ffmpeg",
@@ -32,6 +28,8 @@ public class ThumbnailService {
 					"1",
 					"-y",
 					outputPath);
+
+			builder.inheritIO();
 
 			Process process = builder.start();
 
