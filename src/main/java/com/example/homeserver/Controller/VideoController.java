@@ -94,6 +94,14 @@ public class VideoController {
 	            "tags",
 	            tagService.getAllTags()
 	    );
+	    
+	    List<Folder> allFolders =
+	            folderService.getAllFolders();
+
+	    model.addAttribute(
+	            "allFolders",
+	            allFolders
+	    );
 
 		return "video/list";
 	}
@@ -117,6 +125,13 @@ public class VideoController {
 
 		}
 
+		List<Folder> allFolders =
+		        folderService.getAllFolders();
+
+		model.addAttribute(
+		        "allFolders",
+		        allFolders
+		);
 		// フォルダ内の動画を取得
 		List<Video> videos = videoService.getVideosByFolder(id);
 
@@ -250,7 +265,7 @@ public class VideoController {
 	// 名前変更画面
 	// =========================
 
-	@GetMapping("/videos/edit/{id}")
+	@GetMapping("/edit/{id}")
 	public String editVideo(
 			@PathVariable Long id,
 			Model model) {
@@ -296,19 +311,31 @@ public class VideoController {
 
 	    boolean deleted =
 	            tagService.deleteTag(id);
-
-
 	    if (!deleted) {
 
 	        return "redirect:/videos?tagDeleteError";
 
 	    }
-
-
 	    return "redirect:/videos";
 
 	}
 
+	// =========================
+	// 動画をフォルダーへ移動
+	// =========================
+
+	@PostMapping("/move")
+	public String moveVideo(
+	        @RequestParam Long videoId,
+	        @RequestParam(required = false) Long folderId) {
+
+	    videoService.moveVideo(
+	            videoId,
+	            folderId
+	    );
+
+	    return "redirect:/videos";
+	}
 
 
 }

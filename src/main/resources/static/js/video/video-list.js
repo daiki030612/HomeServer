@@ -490,3 +490,138 @@ function closeFolderModal() {
         .classList.remove("show");
 
 }
+
+function closeFolderModal() {
+
+    document
+        .getElementById("folderModal")
+        .classList.remove("show");
+}
+
+// =========================
+// フォルダー移動モーダル
+// =========================
+
+function openMoveFolderModal(event, button) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+
+    // 動画IDを取得
+    const videoId =
+        button.dataset.id;
+
+
+    // hiddenに保存
+    document
+        .getElementById("moveVideoId")
+        .value = videoId;
+
+
+    // メニューを閉じる
+    document
+        .querySelectorAll(".menu-dropdown")
+        .forEach(function(menu) {
+
+            menu.classList.remove("show");
+
+        });
+
+
+    // モーダルを表示
+    document
+        .getElementById("moveFolderModal")
+        .classList.add("show");
+
+}
+
+
+// =========================
+// フォルダー移動モーダルを閉じる
+// =========================
+
+function closeMoveFolderModal() {
+
+    document
+        .getElementById("moveFolderModal")
+        .classList.remove("show");
+
+}
+
+
+// =========================
+// 動画を移動
+// =========================
+
+function moveVideo() {
+
+    const videoId =
+        document
+            .getElementById("moveVideoId")
+            .value;
+
+
+    const folderId =
+        document
+            .getElementById("moveFolderId")
+            .value;
+
+
+    // FormData
+    const formData =
+        new FormData();
+
+
+    formData.append(
+        "videoId",
+        videoId
+    );
+
+
+    // folderIdが空なら
+    // メインページへ移動
+    if (folderId !== "") {
+
+        formData.append(
+            "folderId",
+            folderId
+        );
+
+    }
+
+
+    // POST
+    fetch(
+        "/videos/move",
+        {
+            method: "POST",
+            body: formData
+        }
+    )
+        .then(function(response) {
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "動画の移動に失敗しました"
+                );
+
+            }
+
+
+            // 移動後にページ更新
+            window.location.reload();
+
+        })
+        .catch(function(error) {
+
+            console.error(error);
+
+            alert(
+                "動画の移動に失敗しました。"
+            );
+
+        });
+
+}

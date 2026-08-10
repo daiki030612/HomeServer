@@ -22,5 +22,7 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 		""")
 		List<Video> searchByTitleOrTag(@Param("keyword") String keyword);
 	List<Video> findByFolderId(Long folderId);   
+	
+	List<Video> findByFolderIsNull();
 
 }

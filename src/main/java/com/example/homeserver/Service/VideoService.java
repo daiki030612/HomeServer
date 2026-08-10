@@ -21,7 +21,6 @@ import com.example.homeserver.Repository.FolderRepository;
 import com.example.homeserver.Repository.TagRepository;
 import com.example.homeserver.Repository.VideoRepository;
 
-
 @Service
 public class VideoService {
 
@@ -30,13 +29,12 @@ public class VideoService {
 
 	@Autowired
 	private ThumbnailService thumbnailService;
-	
+
 	@Autowired
 	private TagRepository tagRepository;
-	
+
 	@Autowired
 	private FolderRepository folderRepository;
-
 
 	// 動画保存場所
 	@Value("${video.storage.path}")
@@ -45,7 +43,7 @@ public class VideoService {
 	// 動画一覧取得
 	public List<Video> getAllVideos() {
 
-		return videoRepository.findAll();
+	    return videoRepository.findByFolderIsNull();
 
 	}
 
@@ -103,127 +101,117 @@ public class VideoService {
 	}
 
 	// 動画アップロード
-	public void upload(MultipartFile file,Long folderId) {
+	public void upload(MultipartFile file, Long folderId) {
 
-	    try {
+		try {
 
-	        // 拡張子取得
-	        String originalName = file.getOriginalFilename();
+			// 拡張子取得
+			String originalName = file.getOriginalFilename();
 
-	        String extension = "";
+			String extension = "";
 
-	        if (originalName != null && originalName.contains(".")) {
-	            extension = originalName.substring(
-	                    originalName.lastIndexOf("."));
-	        }
+			if (originalName != null && originalName.contains(".")) {
+				extension = originalName.substring(
+						originalName.lastIndexOf("."));
+			}
 
-	        // 保存用ファイル名
-	        String fileName = UUID.randomUUID() + extension;
+			// 保存用ファイル名
+			String fileName = UUID.randomUUID() + extension;
 
-	        // 動画保存先
-	        Path savePath = Paths.get(
-	                videoStoragePath,
-	                fileName);
+			// 動画保存先
+			Path savePath = Paths.get(
+					videoStoragePath,
+					fileName);
 
-	        System.out.println("====================");
-	        System.out.println("ORIGINAL NAME : " + originalName);
-	        System.out.println("GENERATED NAME: " + fileName);
-	        System.out.println("SAVE PATH     : " + savePath);
-	        System.out.println("====================");
+			System.out.println("====================");
+			System.out.println("ORIGINAL NAME : " + originalName);
+			System.out.println("GENERATED NAME: " + fileName);
+			System.out.println("SAVE PATH     : " + savePath);
+			System.out.println("====================");
 
+			// ★① ファイル保存
+			System.out.println("① ファイル保存開始");
 
-	        // ★① ファイル保存
-	        System.out.println("① ファイル保存開始");
+			file.transferTo(savePath.toFile());
 
-	        file.transferTo(savePath.toFile());
+			System.out.println("② ファイル保存完了");
 
-	        System.out.println("② ファイル保存完了");
+			// サムネイル名
+			String thumbnailName = fileName.substring(
+					0,
+					fileName.lastIndexOf("."))
+					+ ".jpg";
 
+			// サムネイル保存先
+			Path thumbnailPath = Paths.get(
+					videoStoragePath,
+					"thumbnails",
+					thumbnailName);
 
-	        // サムネイル名
-	        String thumbnailName = fileName.substring(
-	                0,
-	                fileName.lastIndexOf("."))
-	                + ".jpg";
+			// ★② サムネイル生成
+			System.out.println("③ サムネイル生成開始");
 
-	        // サムネイル保存先
-	        Path thumbnailPath = Paths.get(
-	                videoStoragePath,
-	                "thumbnails",
-	                thumbnailName);
+			thumbnailService.createThumbnail(
+					savePath.toString(),
+					thumbnailPath.toString());
 
+			System.out.println("④ サムネイル生成完了");
 
-	        // ★② サムネイル生成
-	        System.out.println("③ サムネイル生成開始");
+			// DB登録
+			Video video = new Video();
 
-	        thumbnailService.createThumbnail(
-	                savePath.toString(),
-	                thumbnailPath.toString());
+			video.setFileName(
+					fileName);
 
-	        System.out.println("④ サムネイル生成完了");
+			video.setTitle(
+					originalName);
 
+			video.setThumbnailName(
+					thumbnailName);
 
-	        // DB登録
-	        Video video = new Video();
+			video.setFilePath(
+					savePath.toString());
 
-	        video.setFileName(
-	                fileName);
+			video.setThumbnailPath(
+					thumbnailPath.toString());
 
-	        video.setTitle(
-	                originalName);
+			// =========================
+			// フォルダ設定
+			// =========================
 
-	        video.setThumbnailName(
-	                thumbnailName);
+			if (folderId != null) {
 
-	        video.setFilePath(
-	                savePath.toString());
+				Folder folder = folderRepository
+						.findById(folderId)
+						.orElse(null);
 
-	        video.setThumbnailPath(
-	                thumbnailPath.toString());
-	        
-	     // =========================
-	     // フォルダ設定
-	     // =========================
+				if (folder != null) {
 
-	     if (folderId != null) {
+					video.setFolder(folder);
 
-	         Folder folder =
-	                 folderRepository
-	                         .findById(folderId)
-	                         .orElse(null);
+				}
 
-	         if (folder != null) {
+			}
 
-	             video.setFolder(folder);
+			System.out.println("====================");
+			System.out.println("FILE PATH : " + video.getFilePath());
+			System.out.println("THUMB PATH: " + video.getThumbnailPath());
+			System.out.println("====================");
 
-	         }
+			// ★③ DB保存
+			System.out.println("⑤ DB保存開始");
 
-	     }
+			videoRepository.save(video);
 
+			System.out.println("⑥ DB保存完了");
 
-	        System.out.println("====================");
-	        System.out.println("FILE PATH : " + video.getFilePath());
-	        System.out.println("THUMB PATH: " + video.getThumbnailPath());
-	        System.out.println("====================");
+		} catch (Exception e) {
 
+			e.printStackTrace();
 
-	        // ★③ DB保存
-	        System.out.println("⑤ DB保存開始");
-
-	        videoRepository.save(video);
-
-	        System.out.println("⑥ DB保存完了");
-
-
-	    } catch (Exception e) {
-
-	        e.printStackTrace();
-
-	    }
+		}
 
 	}
-
-
 
 	// 動画削除
 	public void deleteVideo(Long id) {
@@ -266,96 +254,117 @@ public class VideoService {
 		videoRepository.delete(video);
 
 	}
-	
+
 	public List<Video> searchVideos(String keyword) {
 
-	    return videoRepository
-	            .searchByTitleOrTag(keyword);
+		return videoRepository
+				.searchByTitleOrTag(keyword);
 
 	}
-	
+
 	// フォルダ内の動画取得
 	public List<Video> getVideosByFolder(Long folderId) {
 
-	    return videoRepository.findByFolderId(folderId);
+		return videoRepository.findByFolderId(folderId);
 
 	}
-	
+
 	// =========================
 	// 動画タイトル・タグ更新
 	// =========================
 
 	public void updateVideo(
-	        Long id,
-	        String title,
-	        String tags
-	) {
+			Long id,
+			String title,
+			String tags) {
 
-	    Video video = videoRepository
-	            .findById(id)
-	            .orElse(null);
+		Video video = videoRepository
+				.findById(id)
+				.orElse(null);
 
-	    if (video == null) {
-	        return;
-	    }
+		if (video == null) {
+			return;
+		}
 
+		// タイトル更新
+		video.setTitle(title);
 
-	    // タイトル更新
-	    video.setTitle(title);
+		// =========================
+		// タグ更新
+		// =========================
 
+		// 現在のタグを削除
+		video.getTags().clear();
+		// タグが入力されている場合
+		if (tags != null && !tags.isBlank()) {
 
-	    // =========================
-	    // タグ更新
-	    // =========================
+			String[] tagNames = tags.split(",");
+			for (String tagName : tagNames) {
+				// 前後の空白を削除
+				String name = tagName.trim();
+				// 空文字は無視
+				if (name.isBlank()) {
+					continue;
+				}
+				// 既存タグを検索
+				Tag tag = tagRepository
+						.findByName(name);
+				// 存在しなければ新規作成
+				if (tag == null) {
+					tag = new Tag(name);
+					tag = tagRepository.save(tag);
+				}
 
-	    // 現在のタグを削除
-	    video.getTags().clear();
+				// 動画にタグを追加
+				video.getTags().add(tag);
 
+			}
 
-	    // タグが入力されている場合
-	    if (tags != null && !tags.isBlank()) {
+		}
 
-	        String[] tagNames = tags.split(",");
+		// 動画を保存
+		videoRepository.save(video);
 
+	}
 
-	        for (String tagName : tagNames) {
+	public void moveVideo(
+			Long videoId,
+			Long folderId) {
 
-	            // 前後の空白を削除
-	            String name = tagName.trim();
+		Video video = videoRepository
+				.findById(videoId)
+				.orElse(null);
 
+		if (video == null) {
+			return;
+		}
+		// =========================
+		// ルートへ移動
+		// =========================
 
-	            // 空文字は無視
-	            if (name.isBlank()) {
-	                continue;
-	            }
+		if (folderId == null) {
+			video.setFolder(null);
+		}
 
+		// =========================
+		// フォルダーへ移動
+		// =========================
 
-	            // 既存タグを検索
-	            Tag tag = tagRepository
-	                    .findByName(name);
+		else {
 
+			Folder folder = folderRepository
+					.findById(folderId)
+					.orElse(null);
 
-	            // 存在しなければ新規作成
-	            if (tag == null) {
+			if (folder == null) {
+				return;
+			}
 
-	                tag = new Tag(name);
+			video.setFolder(folder);
 
-	                tag = tagRepository.save(tag);
-
-	            }
-
-
-	            // 動画にタグを追加
-	            video.getTags().add(tag);
-
-	        }
-
-	    }
-
-
-	    // 動画を保存
-	    videoRepository.save(video);
-
+		}
+		// DB更新
+		videoRepository.save(video);
 	}
 
 }

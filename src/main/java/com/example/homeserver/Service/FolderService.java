@@ -81,5 +81,11 @@ public class FolderService {
                 .orElse(null);
 
     }
+    
+    public List<Folder> getAllFolders() {
+
+        return folderRepository.findAll();
+
+    }
 
 }
