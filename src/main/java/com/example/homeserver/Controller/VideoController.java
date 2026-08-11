@@ -384,18 +384,18 @@ public class VideoController {
 	// 動画をフォルダーへ移動
 	// =========================
 
-	@PostMapping("/move")
-	public String moveVideo(
-	        @RequestParam Long videoId,
-	        @RequestParam(required = false) Long folderId) {
+		@PostMapping("/move")
+		public ResponseEntity<?> moveVideo(
+		        @RequestParam Long videoId,
+		        @RequestParam(required = false) Long folderId) {
 
-	    videoService.moveVideo(
-	            videoId,
-	            folderId
-	    );
-
-	    return "redirect:/videos";
-	}
+		    try {
+		        videoService.moveVideo(videoId, folderId);
+		        return ResponseEntity.ok().build();
+		    } catch (Exception e) {
+		        return ResponseEntity.badRequest().body(e.getMessage());
+		    }
+		}
 
 
 }

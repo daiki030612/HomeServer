@@ -6,6 +6,9 @@
 	<title>Home Server</title>
 	<link rel="stylesheet" th:href="@{/css/style.css}">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<!-- CSRF Token -->
+	<meta name="_csrf" th:content="${_csrf.token}"/>
+	<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
 </head>
 
 <body>

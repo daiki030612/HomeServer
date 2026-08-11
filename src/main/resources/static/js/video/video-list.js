@@ -591,14 +591,23 @@ function moveVideo() {
     }
 
 
+    // CSRFトークン取得
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+    const options = {
+        method: "POST",
+        body: formData
+    };
+
+    if (csrfToken && csrfHeader) {
+        options.headers = {
+            [csrfHeader]: csrfToken
+        };
+    }
+
     // POST
-    fetch(
-        "/videos/move",
-        {
-            method: "POST",
-            body: formData
-        }
-    )
+    fetch("/videos/move", options)
         .then(function(response) {
 
             if (!response.ok) {
@@ -964,7 +973,7 @@ function moveVideoToFolder(videoId, folderId) {
 
 
     // フォルダーIDがある場合だけ送信
-    if (folderId !== null && folderId !== undefined) {
+    if (folderId !== null && folderId !== undefined && folderId !== "") {
 
         formData.append(
             "folderId",
@@ -974,13 +983,22 @@ function moveVideoToFolder(videoId, folderId) {
     }
 
 
-    fetch(
-        "/videos/move",
-        {
-            method: "POST",
-            body: formData
-        }
-    )
+    // CSRFトークン取得
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+    const options = {
+        method: "POST",
+        body: formData
+    };
+
+    if (csrfToken && csrfHeader) {
+        options.headers = {
+            [csrfHeader]: csrfToken
+        };
+    }
+
+    fetch("/videos/move", options)
         .then(function(response) {
 
             if (!response.ok) {
@@ -1005,60 +1023,6 @@ function moveVideoToFolder(videoId, folderId) {
 
         });
 
-}
-
-// =========================
-// パンくずへ動画をドロップ
-// =========================
-
-function dropVideoToBreadcrumb(event, breadcrumb) {
-
-    event.preventDefault();
-
-    const videoId =
-        event.dataTransfer.getData("text/plain");
-
-    const folderId =
-        breadcrumb.dataset.id;
-
-    if (!videoId || !folderId) {
-        return;
-    }
-
-    moveVideoToFolder(
-        videoId,
-        folderId
-    );
-}
-
-// =========================
-// パンくずへ動画をドロップ
-// =========================
-
-function dropVideoToBreadcrumb(event, breadcrumb) {
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const videoId =
-        event.dataTransfer.getData("text/plain");
-
-    const folderId =
-        breadcrumb.dataset.id;
-
-    console.log("パンくずへドロップ");
-    console.log("videoId =", videoId);
-    console.log("folderId =", folderId);
-
-    if (!videoId || !folderId) {
-        console.log("ID取得失敗");
-        return;
-    }
-
-    moveVideoToFolder(
-        videoId,
-        folderId
-    );
 }
 
 // =========================
