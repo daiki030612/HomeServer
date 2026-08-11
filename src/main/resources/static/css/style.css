@@ -79,6 +79,26 @@ body {
 	color: #0071e3;
 }
 
+.logout-form {
+	display: inline;
+}
+
+.logout-link {
+	background: none;
+	border: none;
+	padding: 0;
+	color: #555;
+	font-size: 15px;
+	text-decoration: none;
+	cursor: pointer;
+	transition: .2s;
+	font-family: inherit;
+}
+
+.logout-link:hover {
+	color: #0071e3;
+}
+
 
 /* =========================================================
    Mobile Header Menu
@@ -975,6 +995,18 @@ body {
 	}
 
 	.mobile-menu>a:hover {
+		background: #f5f5f7;
+	}
+
+	.mobile-menu .logout-link {
+		width: 100%;
+		text-align: left;
+		padding: 14px;
+		border-radius: 12px;
+		box-sizing: border-box;
+	}
+
+	.mobile-menu .logout-link:hover {
 		background: #f5f5f7;
 	}
 
