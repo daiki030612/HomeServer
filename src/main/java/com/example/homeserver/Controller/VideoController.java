@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpRange;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -219,32 +222,33 @@ public class VideoController {
 	// =========================
 
 	@GetMapping("/play/{id}")
-	public ResponseEntity<Resource> playVideo(
+	public ResponseEntity<ResourceRegion> playVideo(
 			@PathVariable Long id,
 			@RequestHeader HttpHeaders headers) throws IOException {
 
 		Resource resource = videoService.getVideo(id);
-
 		if (resource == null) {
-
-			return ResponseEntity
-					.notFound()
-					.build();
-
+			return ResponseEntity.notFound().build();
 		}
 
-		long fileLength = resource.contentLength();
+		long contentLength = resource.contentLength();
+		HttpRange range = headers.getRange().isEmpty() ? null : headers.getRange().get(0);
 
-		return ResponseEntity
-				.ok()
-				.header(
-						HttpHeaders.ACCEPT_RANGES,
-						"bytes")
-				.contentType(
-						MediaType.parseMediaType(
-								"video/mp4"))
-				.contentLength(fileLength)
-				.body(resource);
+		if (range != null) {
+			long start = range.getRangeStart(contentLength);
+			long end = range.getRangeEnd(contentLength);
+			long rangeLength = Math.min(1024 * 1024, end - start + 1); // 1MB単位で返却
+			ResourceRegion region = new ResourceRegion(resource, start, rangeLength);
+			return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+					.contentType(MediaType.parseMediaType("video/mp4"))
+					.body(region);
+		} else {
+			long rangeLength = Math.min(1024 * 1024, contentLength);
+			ResourceRegion region = new ResourceRegion(resource, 0, rangeLength);
+			return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+					.contentType(MediaType.parseMediaType("video/mp4"))
+					.body(region);
+		}
 	}
 
 	// =========================
@@ -292,22 +296,16 @@ public class VideoController {
 	// =========================
 
 	@PostMapping("/upload")
-	public String upload(
+	public ResponseEntity<?> upload(
 	        @RequestParam("file") MultipartFile file,
 	        @RequestParam(value = "folderId", required = false) Long folderId) {
 
-	    System.out.println("① Controller開始");
-	    System.out.println("folderId = " + folderId);
-
-	    videoService.upload(file, folderId);
-
-	    System.out.println("② Service完了");
-
-	    if (folderId != null) {
-	        return "redirect:/videos/folder/" + folderId;
+	    try {
+	        videoService.upload(file, folderId);
+	        return ResponseEntity.ok().build();
+	    } catch (Exception e) {
+	        return ResponseEntity.badRequest().body(e.getMessage());
 	    }
-
-	    return "redirect:/videos";
 	}
 	// =========================
 	// 動画削除

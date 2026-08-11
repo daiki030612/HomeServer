@@ -128,19 +128,27 @@ public class VideoService {
 	public void upload(MultipartFile file, Long folderId) {
 
 		try {
+				// ファイルが空でないかチェック
+				if (file.isEmpty()) {
+					throw new RuntimeException("ファイルが選択されていません。");
+				}
 
-			// 拡張子取得
-			String originalName = file.getOriginalFilename();
+				// 拡張子取得
+				String originalName = file.getOriginalFilename();
+				String extension = "";
 
-			String extension = "";
+				if (originalName != null && originalName.contains(".")) {
+					extension = originalName.substring(
+							originalName.lastIndexOf(".")).toLowerCase();
+				}
 
-			if (originalName != null && originalName.contains(".")) {
-				extension = originalName.substring(
-						originalName.lastIndexOf("."));
-			}
+				// 動画ファイルかチェック（簡易的）
+				if (!extension.equals(".mp4") && !extension.equals(".mov") && !extension.equals(".avi")) {
+					throw new RuntimeException("許可されていないファイル形式です。(.mp4, .mov, .avi のみ)");
+				}
 
-			// 保存用ファイル名
-			String fileName = UUID.randomUUID() + extension;
+				// 保存用ファイル名
+				String fileName = UUID.randomUUID() + extension;
 
 			// 動画保存先
 			Path savePath = Paths.get(
@@ -229,11 +237,10 @@ public class VideoService {
 
 			System.out.println("⑥ DB保存完了");
 
-		} catch (Exception e) {
-
-			e.printStackTrace();
-
-		}
+			} catch (Exception e) {
+				e.printStackTrace();
+				throw new RuntimeException("アップロード中にエラーが発生しました: " + e.getMessage());
+			}
 
 	}
 

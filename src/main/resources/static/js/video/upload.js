@@ -187,23 +187,20 @@ document.addEventListener("DOMContentLoaded", function() {
 
                     setTimeout(
                         function() {
-
-                            window.location.href =
-                                "/videos";
-
+                            if (folderId) {
+                                window.location.href = "/videos/folder/" + folderId;
+                            } else {
+                                window.location.href = "/videos";
+                            }
                         },
                         500
                     );
 
 
                 } else {
-
-                    alert(
-                        "アップロードに失敗しました。"
-                    );
-
+                    const errorMessage = xhr.responseText || "アップロードに失敗しました。";
+                    alert("エラー: " + errorMessage);
                     resetUpload();
-
                 }
 
             }
