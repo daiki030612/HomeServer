@@ -82,46 +82,34 @@ public class VideoService {
 	public Video getVideoById(Long id) {
 
 		return videoRepository.findById(id)
-				.orElse(null);
+				.orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("動画が見つかりませんでした (ID: " + id + ")"));
 
 	}
 
 	// 動画再生用Resource取得
 	public Resource getVideo(Long id) {
 
-		Optional<Video> optionalVideo = videoRepository.findById(id);
-
-		if (optionalVideo.isEmpty()) {
-			return null;
-		}
-
-		Video video = optionalVideo.get();
+		Video video = videoRepository.findById(id)
+				.orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("動画が見つかりませんでした (ID: " + id + ")"));
 
 		Path path;
 
 		// filePathが登録されている場合
 		if (video.getFilePath() != null &&
 				!video.getFilePath().isBlank()) {
-
 			path = Paths.get(video.getFilePath());
-
 		} else {
-
 			// 古いデータ対策
-			path = Paths.get(
-					videoStoragePath,
-					video.getFileName());
+			path = Paths.get(videoStoragePath, video.getFileName());
 		}
 
 		Resource resource = new FileSystemResource(path);
 
-		if (resource.exists() &&
-				resource.isReadable()) {
-
-			return resource;
+		if (!resource.exists() || !resource.isReadable()) {
+			throw new RuntimeException("動画ファイルが物理的に存在しないか、読み込めません: " + path);
 		}
 
-		return null;
+		return resource;
 	}
 
 	// 動画アップロード
@@ -297,18 +285,14 @@ public class VideoService {
 	// 動画タイトル・タグ更新
 	// =========================
 
-	public void updateVideo(
-			Long id,
-			String title,
-			String tags) {
+		public void updateVideo(
+				Long id,
+				String title,
+				String tags) {
 
-		Video video = videoRepository
-				.findById(id)
-				.orElse(null);
-
-		if (video == null) {
-			return;
-		}
+			Video video = videoRepository
+					.findById(id)
+					.orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("動画が見つかりませんでした (ID: " + id + ")"));
 
 		// タイトル更新
 		video.setTitle(title);
@@ -351,17 +335,13 @@ public class VideoService {
 
 	}
 
-	public void moveVideo(
-			Long videoId,
-			Long folderId) {
+		public void moveVideo(
+				Long videoId,
+				Long folderId) {
 
-		Video video = videoRepository
-				.findById(videoId)
-				.orElse(null);
-
-		if (video == null) {
-			return;
-		}
+			Video video = videoRepository
+					.findById(videoId)
+					.orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("動画が見つかりませんでした (ID: " + videoId + ")"));
 		// =========================
 		// ルートへ移動
 		// =========================

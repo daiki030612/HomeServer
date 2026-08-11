@@ -89,7 +89,7 @@ public class FolderService {
 
 		return folderRepository
 				.findById(id)
-				.orElse(null);
+				.orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("フォルダーが見つかりませんでした (ID: " + id + ")"));
 
 	}
 
@@ -111,11 +111,7 @@ public class FolderService {
 
 		Folder folder = folderRepository
 				.findById(id)
-				.orElse(null);
-
-		if (folder == null) {
-			return;
-		}
+				.orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("フォルダーが見つかりませんでした (ID: " + id + ")"));
 
 		folder.setName(name);
 
@@ -130,11 +126,7 @@ public class FolderService {
 
 		Folder folder = folderRepository
 				.findById(id)
-				.orElse(null);
-
-		if (folder == null) {
-			return false;
-		}
+				.orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("フォルダーが見つかりませんでした (ID: " + id + ")"));
 
 		// 子フォルダーがある場合
 		if (folderRepository.existsByParent(folder)) {

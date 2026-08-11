@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Error - Home Server</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .error-container {
+            text-align: center;
+            padding: 100px 20px;
+        }
+        .error-code {
+            font-size: 80px;
+            font-weight: bold;
+            color: #ddd;
+            margin: 0;
+        }
+        .error-message {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #333;
+        }
+        .error-details {
+            color: #666;
+            margin-bottom: 40px;
+        }
+        .back-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .back-link:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/header :: header}"></div>
+    
+    <div class="container">
+        <div class="error-container">
+            <h1 class="error-code" th:text="${status}">500</h1>
+            <p class="error-message" th:text="${message}">予期せぬエラーが発生しました。</p>
+            <p class="error-details" th:if="${error}" th:text="${error}">Internal Server Error</p>
+            <a href="/videos" class="back-link">トップページに戻る</a>
+        </div>
+    </div>
+</body>
+</html>

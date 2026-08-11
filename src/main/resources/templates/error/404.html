@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Page Not Found - Home Server</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .error-container {
+            text-align: center;
+            padding: 100px 20px;
+        }
+        .error-code {
+            font-size: 80px;
+            font-weight: bold;
+            color: #ddd;
+            margin: 0;
+        }
+        .error-message {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #333;
+        }
+        .back-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .back-link:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/header :: header}"></div>
+    
+    <div class="container">
+        <div class="error-container">
+            <h1 class="error-code">404</h1>
+            <p class="error-message">お探しのページまたはファイルが見つかりませんでした。</p>
+            <a href="/videos" class="back-link">トップページに戻る</a>
+        </div>
+    </div>
+</body>
+</html>

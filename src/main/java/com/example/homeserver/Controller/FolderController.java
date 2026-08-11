@@ -61,20 +61,15 @@ public class FolderController {
 	// フォルダー削除
 	// =========================
 
-	@GetMapping("/folders/delete/{id}")
-	public String deleteFolder(
-	        @PathVariable Long id) {
+		@GetMapping("/folders/delete/{id}")
+		public String deleteFolder(
+		        @PathVariable Long id) {
 
-	    Folder folder = folderService.getFolderById(id);
+		    Folder folder = folderService.getFolderById(id);
+		    // 削除前に親フォルダーを取得
+		    Folder parent = folder.getParent();
 
-	    if (folder == null) {
-	        return "redirect:/videos";
-	    }
-
-	    // 削除前に親フォルダーを取得
-	    Folder parent = folder.getParent();
-
-	    boolean deleted = folderService.deleteFolder(id);
+		    boolean deleted = folderService.deleteFolder(id);
 
 	    if (!deleted) {
 	        return "redirect:/videos?folderDeleteError";

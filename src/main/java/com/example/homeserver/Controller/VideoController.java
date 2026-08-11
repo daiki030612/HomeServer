@@ -221,17 +221,14 @@ public class VideoController {
 	// 動画再生
 	// =========================
 
-	@GetMapping("/play/{id}")
-	public ResponseEntity<ResourceRegion> playVideo(
-			@PathVariable Long id,
-			@RequestHeader HttpHeaders headers) throws IOException {
+		@GetMapping("/play/{id}")
+		public ResponseEntity<ResourceRegion> playVideo(
+				@PathVariable Long id,
+				@RequestHeader HttpHeaders headers) {
 
-		Resource resource = videoService.getVideo(id);
-		if (resource == null) {
-			return ResponseEntity.notFound().build();
-		}
-
-		long contentLength = resource.contentLength();
+			try {
+				Resource resource = videoService.getVideo(id);
+				long contentLength = resource.contentLength();
 		HttpRange range = headers.getRange().isEmpty() ? null : headers.getRange().get(0);
 
 		if (range != null) {
@@ -244,12 +241,15 @@ public class VideoController {
 					.body(region);
 		} else {
 			long rangeLength = Math.min(1024 * 1024, contentLength);
-			ResourceRegion region = new ResourceRegion(resource, 0, rangeLength);
-			return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-					.contentType(MediaType.parseMediaType("video/mp4"))
-					.body(region);
+				ResourceRegion region = new ResourceRegion(resource, 0, rangeLength);
+				return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+						.contentType(MediaType.parseMediaType("video/mp4"))
+						.body(region);
+			}
+			} catch (IOException e) {
+				return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+			}
 		}
-	}
 
 	// =========================
 	// 動画視聴画面
