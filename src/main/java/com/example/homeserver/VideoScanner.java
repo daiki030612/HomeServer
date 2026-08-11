@@ -9,9 +9,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.example.homeserver.Entity.User;
 import com.example.homeserver.Entity.Video;
+import com.example.homeserver.Repository.UserRepository;
 import com.example.homeserver.Repository.VideoRepository;
 import com.example.homeserver.Service.ThumbnailService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 
 @Component
@@ -23,6 +26,12 @@ public class VideoScanner {
     @Autowired
     private VideoRepository videoRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Value("${video.storage.path}")
     private String videoStoragePath;
 
@@ -30,6 +39,22 @@ public class VideoScanner {
     private String thumbnailStoragePath;
 
     @PostConstruct
+    public void init() {
+        initUser();
+        scanVideos();
+    }
+
+    private void initUser() {
+        if (userRepository.findByUsername("admin").isEmpty()) {
+            User admin = new User();
+            admin.setUsername("admin");
+            admin.setPassword(passwordEncoder.encode("admin")); // デフォルトパスワード
+            admin.setRole("ROLE_ADMIN");
+            userRepository.save(admin);
+            System.out.println("初期ユーザー(admin/admin)を作成しました。");
+        }
+    }
+
     public void scanVideos() {
 
         File folder = new File(videoStoragePath);

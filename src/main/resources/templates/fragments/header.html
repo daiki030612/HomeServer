@@ -39,14 +39,19 @@
 				</a>
 
 
-				<!-- アップロード -->
-				<a th:href="@{/videos/upload(
-		            folderId=${currentFolder != null ? currentFolder.id : null}
-		        )}">
-					Upload
-				</a>
+					<!-- アップロード -->
+					<a th:href="@{/videos/upload(
+			            folderId=${currentFolder != null ? currentFolder.id : null}
+			        )}">
+						Upload
+					</a>
 
-			</div>
+					<!-- ログアウト -->
+					<form th:action="@{/logout}" method="post" style="display: inline;">
+						<button type="submit" style="background:none; border:none; color:inherit; cursor:pointer; font:inherit; padding: 10px 15px;">Logout</button>
+					</form>
+
+				</div>
 
 		</nav>
 
