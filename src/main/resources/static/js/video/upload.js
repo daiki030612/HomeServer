@@ -114,6 +114,19 @@ document.addEventListener("DOMContentLoaded", function() {
 		    "POST",
 		    "/videos/upload"
 		);
+
+		const csrfToken =
+		    document.querySelector('meta[name="_csrf"]')?.content;
+
+		const csrfHeader =
+		    document.querySelector('meta[name="_csrf_header"]')?.content;
+
+		if (!csrfToken || !csrfHeader) {
+		    alert("セキュリティトークンを取得できませんでした。ページを再読み込みしてください。");
+		    return;
+		}
+
+		xhr.setRequestHeader(csrfHeader, csrfToken);
 		 /* * UI変更 */ 
 		 uploadButton.disabled = true; uploadButton.textContent = "アップロード中..."; 
 		 progressArea.style.display = "block";
@@ -232,11 +245,6 @@ document.addEventListener("DOMContentLoaded", function() {
          * アップロード開始
          * =========================
          */
-
-        xhr.open(
-            "POST",
-            "/videos/upload"
-        );
 
         xhr.send(formData);
 
