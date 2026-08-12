@@ -1,6 +1,8 @@
 package com.example.homeserver.Service;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -40,6 +42,9 @@ public class VideoService {
 	// 動画保存場所
 	@Value("${video.storage.path}")
 	private String videoStoragePath;
+
+	@Value("${thumbnail.storage.path}")
+	private String thumbnailStoragePath;
 
 	// 動画一覧取得
 	public List<Video> getAllVideos(String sort) {
@@ -126,6 +131,8 @@ public class VideoService {
 
 	// 動画アップロード
 	public void upload(MultipartFile file, Long folderId) {
+		Path savePath = null;
+		Path thumbnailPath = null;
 
 		try {
 				// ファイルが空でないかチェック
@@ -151,9 +158,9 @@ public class VideoService {
 				String fileName = UUID.randomUUID() + extension;
 
 			// 動画保存先
-			Path savePath = Paths.get(
-					videoStoragePath,
-					fileName);
+			Path videoStorageRoot = storageRoot(videoStoragePath);
+			Files.createDirectories(videoStorageRoot);
+			savePath = resolveWithinStorage(videoStorageRoot, fileName);
 
 			System.out.println("====================");
 			System.out.println("ORIGINAL NAME : " + originalName);
@@ -175,10 +182,9 @@ public class VideoService {
 					+ ".jpg";
 
 			// サムネイル保存先
-			Path thumbnailPath = Paths.get(
-					videoStoragePath,
-					"thumbnails",
-					thumbnailName);
+			Path thumbnailStorageRoot = storageRoot(thumbnailStoragePath);
+			Files.createDirectories(thumbnailStorageRoot);
+			thumbnailPath = resolveWithinStorage(thumbnailStorageRoot, thumbnailName);
 
 			// ★② サムネイル生成
 			System.out.println("③ サムネイル生成開始");
@@ -233,13 +239,13 @@ public class VideoService {
 			// ★③ DB保存
 			System.out.println("⑤ DB保存開始");
 
-			videoRepository.save(video);
+			videoRepository.saveAndFlush(video);
 
 			System.out.println("⑥ DB保存完了");
 
 			} catch (Exception e) {
-				e.printStackTrace();
-				throw new RuntimeException("アップロード中にエラーが発生しました: " + e.getMessage());
+				compensateUpload(savePath, thumbnailPath, e);
+				throw new RuntimeException("アップロード中にエラーが発生しました: " + e.getMessage(), e);
 			}
 
 	}
@@ -250,33 +256,24 @@ public class VideoService {
 		Video video = videoRepository.findById(id)
 				.orElseThrow();
 
+		Path videoFile = resolveStoredPath(
+				video.getFilePath(), video.getFileName(), storageRoot(videoStoragePath));
+		Path thumbnailFile = resolveStoredPath(
+				video.getThumbnailPath(), video.getThumbnailName(), storageRoot(thumbnailStoragePath));
+
 		// 動画削除
 
-		if (video.getFilePath() != null) {
+		if (videoFile != null) {
 
-			File videoFile = new File(
-					video.getFilePath());
-
-			if (videoFile.exists()) {
-
-				videoFile.delete();
-
-			}
+			deleteAndConfirm(videoFile);
 
 		}
 
 		// サムネ削除
 
-		if (video.getThumbnailPath() != null) {
+		if (thumbnailFile != null) {
 
-			File thumbnailFile = new File(
-					video.getThumbnailPath());
-
-			if (thumbnailFile.exists()) {
-
-				thumbnailFile.delete();
-
-			}
+			deleteAndConfirm(thumbnailFile);
 
 		}
 
@@ -284,6 +281,87 @@ public class VideoService {
 
 		videoRepository.delete(video);
 
+	}
+
+	private Path storageRoot(String configuredPath) {
+		return Paths.get(configuredPath).toAbsolutePath().normalize();
+	}
+
+	private Path resolveWithinStorage(Path storageRoot, String fileName) {
+		Path resolved = storageRoot.resolve(fileName).toAbsolutePath().normalize();
+		ensureWithinStorage(resolved, storageRoot);
+		return resolved;
+	}
+
+	private Path resolveStoredPath(String storedPath, String fileName, Path storageRoot) {
+		if (storedPath != null && !storedPath.isBlank()) {
+			Path resolved = Paths.get(storedPath).toAbsolutePath().normalize();
+			ensureWithinStorage(resolved, storageRoot);
+			return resolved;
+		}
+
+		if (fileName == null || fileName.isBlank()) {
+			return null;
+		}
+
+		return resolveWithinStorage(storageRoot, fileName);
+	}
+
+	private void ensureWithinStorage(Path path, Path storageRoot) {
+		try {
+			Path verifiedRoot = Files.exists(storageRoot)
+					? storageRoot.toRealPath()
+					: storageRoot;
+			Path verifiedPath;
+
+			if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+				verifiedPath = path.toRealPath();
+			} else if (path.getParent() != null && Files.exists(path.getParent())) {
+				verifiedPath = path.getParent().toRealPath()
+						.resolve(path.getFileName()).normalize();
+			} else {
+				verifiedPath = path;
+			}
+
+			if (!verifiedPath.startsWith(verifiedRoot)) {
+				throw new IllegalArgumentException(
+						"Media path is outside the configured storage directory");
+			}
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Media path could not be validated", e);
+		}
+	}
+
+	private void deleteAndConfirm(Path path) {
+		try {
+			Files.deleteIfExists(path);
+			if (Files.exists(path)) {
+				throw new IOException("File still exists after deletion: " + path);
+			}
+		} catch (IOException e) {
+			throw new IllegalStateException(
+					"Physical media deletion failed; the database record was not deleted", e);
+		}
+	}
+
+	private void compensateUpload(Path videoPath, Path thumbnailPath, Exception originalFailure) {
+		deleteCompensationFile(thumbnailPath, originalFailure);
+		deleteCompensationFile(videoPath, originalFailure);
+	}
+
+	private void deleteCompensationFile(Path path, Exception originalFailure) {
+		if (path == null) {
+			return;
+		}
+
+		try {
+			Files.deleteIfExists(path);
+			if (Files.exists(path)) {
+				throw new IOException("Compensation deletion did not remove: " + path);
+			}
+		} catch (IOException cleanupFailure) {
+			originalFailure.addSuppressed(cleanupFailure);
+		}
 	}
 
 	// フォルダ内の動画取得
