@@ -15,6 +15,11 @@
 	<div th:replace="~{fragments/header :: header}"></div>
 
 	<div class="container">
+		<section class="library-hero">
+			<p class="eyebrow">PRIVATE MEDIA LIBRARY</p>
+			<h1 th:text="${currentFolder != null ? currentFolder.name : 'あなたのライブラリ'}">あなたのライブラリ</h1>
+			<p>大切な映像を、ひとつの美しい場所に。</p>
+		</section>
 
 		<!-- =========================
      パンくずリスト
@@ -70,8 +75,8 @@
 
 			<input type="text" name="keyword" placeholder="動画を検索..." class="search-input" th:value="${keyword}">
 
-			<button type="submit" class="search-button">
-				🔍
+			<button type="submit" class="search-button" aria-label="検索">
+				⌕
 			</button>
 
 			<select name="sort" onchange="this.form.submit()">

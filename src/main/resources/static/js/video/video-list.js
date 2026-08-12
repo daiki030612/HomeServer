@@ -836,6 +836,60 @@ document.addEventListener(
 // =========================
 
 let draggedVideoId = null;
+let dragScrollFrame = null;
+let dragScrollSpeed = 0;
+
+const dragScrollEdge = 110;
+const dragScrollMaxSpeed = 20;
+
+function updateDragAutoScroll(event) {
+
+    if (!draggedVideoId) {
+        return;
+    }
+
+    const pointerY = event.clientY;
+    const viewportHeight = window.innerHeight;
+
+    if (pointerY < dragScrollEdge) {
+        dragScrollSpeed = -dragScrollMaxSpeed
+            * Math.min(1, 1 - pointerY / dragScrollEdge);
+    } else if (pointerY > viewportHeight - dragScrollEdge) {
+        dragScrollSpeed = dragScrollMaxSpeed
+            * Math.min(1, 1 - (viewportHeight - pointerY) / dragScrollEdge);
+    } else {
+        dragScrollSpeed = 0;
+    }
+
+    if (dragScrollSpeed !== 0 && dragScrollFrame === null) {
+        dragScrollFrame = requestAnimationFrame(runDragAutoScroll);
+    }
+}
+
+function runDragAutoScroll() {
+
+    if (!draggedVideoId || dragScrollSpeed === 0) {
+        dragScrollFrame = null;
+        return;
+    }
+
+    window.scrollBy(0, dragScrollSpeed);
+    dragScrollFrame = requestAnimationFrame(runDragAutoScroll);
+}
+
+function stopDragAutoScroll() {
+
+    dragScrollSpeed = 0;
+
+    if (dragScrollFrame !== null) {
+        cancelAnimationFrame(dragScrollFrame);
+        dragScrollFrame = null;
+    }
+}
+
+document.addEventListener("dragover", updateDragAutoScroll);
+window.addEventListener("drop", stopDragAutoScroll);
+window.addEventListener("dragend", stopDragAutoScroll);
 
 
 // ドラッグ開始
@@ -856,6 +910,8 @@ function dragVideo(event, card) {
 
 // ドラッグ終了
 function dragVideoEnd(event, card) {
+
+    stopDragAutoScroll();
 
     card.classList.remove("dragging");
 
@@ -907,6 +963,8 @@ function leaveVideoDrop(event, folder) {
 function dropVideo(event, folder) {
 
     event.preventDefault();
+
+    stopDragAutoScroll();
 
     folder.classList.remove("drag-over");
 
