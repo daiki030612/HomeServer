@@ -34,6 +34,9 @@ public class VideoService {
 	private ThumbnailService thumbnailService;
 
 	@Autowired
+	private VideoProbeService videoProbeService;
+
+	@Autowired
 	private TagRepository tagRepository;
 
 	@Autowired
@@ -175,6 +178,8 @@ public class VideoService {
 
 			System.out.println("② ファイル保存完了");
 
+			videoProbeService.probe(savePath, videoStorageRoot);
+
 			// サムネイル名
 			String thumbnailName = fileName.substring(
 					0,
@@ -245,7 +250,10 @@ public class VideoService {
 
 			} catch (Exception e) {
 				compensateUpload(savePath, thumbnailPath, e);
-				throw new RuntimeException("アップロード中にエラーが発生しました: " + e.getMessage(), e);
+				if (e instanceof InvalidVideoFileException invalidVideo) {
+					throw invalidVideo;
+				}
+				throw new RuntimeException("アップロードに失敗しました。", e);
 			}
 
 	}

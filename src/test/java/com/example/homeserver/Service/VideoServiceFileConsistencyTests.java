@@ -39,6 +39,9 @@ class VideoServiceFileConsistencyTests {
 	ThumbnailService thumbnailService;
 
 	@Mock
+	VideoProbeService videoProbeService;
+
+	@Mock
 	TagRepository tagRepository;
 
 	@Mock
@@ -59,6 +62,7 @@ class VideoServiceFileConsistencyTests {
 		videoService = new VideoService();
 		ReflectionTestUtils.setField(videoService, "videoRepository", videoRepository);
 		ReflectionTestUtils.setField(videoService, "thumbnailService", thumbnailService);
+		ReflectionTestUtils.setField(videoService, "videoProbeService", videoProbeService);
 		ReflectionTestUtils.setField(videoService, "tagRepository", tagRepository);
 		ReflectionTestUtils.setField(videoService, "folderRepository", folderRepository);
 		ReflectionTestUtils.setField(videoService, "videoStoragePath", videoRoot.toString());
@@ -97,6 +101,22 @@ class VideoServiceFileConsistencyTests {
 
 		assertDirectoryHasNoFiles(videoRoot);
 		assertDirectoryHasNoFiles(thumbnailRoot);
+		verify(videoRepository, never()).saveAndFlush(any(Video.class));
+	}
+
+	@Test
+	void rejectedVideoIsRemovedBeforeThumbnailOrDatabaseWork() throws Exception {
+		configureMultipartFile();
+		when(videoProbeService.probe(any(Path.class), any(Path.class)))
+				.thenThrow(new InvalidVideoFileException());
+
+		InvalidVideoFileException exception = assertThrows(
+				InvalidVideoFileException.class, () -> videoService.upload(multipartFile, null));
+
+		org.junit.jupiter.api.Assertions.assertEquals(
+				InvalidVideoFileException.USER_MESSAGE, exception.getMessage());
+		assertDirectoryHasNoFiles(videoRoot);
+		verify(thumbnailService, never()).createThumbnail(any(String.class), any(String.class));
 		verify(videoRepository, never()).saveAndFlush(any(Video.class));
 	}
 
