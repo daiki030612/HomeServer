@@ -26,6 +26,7 @@ import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.InvalidVideoFileException;
+import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
 @WebMvcTest(VideoController.class)
 @Import(SecurityConfig.class)
@@ -93,5 +94,20 @@ class VideoUploadCsrfTests {
                         .with(csrf().asHeader()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(InvalidVideoFileException.USER_MESSAGE));
+    }
+
+    @Test
+    void unsupportedTranscodeReturnsSafeUserMessage() throws Exception {
+        MockMultipartFile video = new MockMultipartFile(
+                "file", "unsupported.avi", "video/x-msvideo", new byte[] { 1, 2, 3 });
+        doThrow(new UnsupportedVideoConversionException())
+                .when(videoService).upload(any(MultipartFile.class), isNull());
+
+        mockMvc.perform(multipart("/videos/upload")
+                        .file(video)
+                        .with(user("uploader"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(UnsupportedVideoConversionException.USER_MESSAGE));
     }
 }
