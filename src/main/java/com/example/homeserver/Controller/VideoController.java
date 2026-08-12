@@ -311,7 +311,7 @@ public class VideoController {
 	// 動画削除
 	// =========================
 
-	@GetMapping("/delete/{id}")
+	@PostMapping("/delete/{id}")
 	public String deleteVideo(
 			@PathVariable Long id) {
 
@@ -364,7 +364,7 @@ public class VideoController {
 	// タグ削除
 	// =========================
 
-	@GetMapping("/tag/delete/{id}")
+	@PostMapping("/tag/delete/{id}")
 	public String deleteTag(
 	        @PathVariable Long id,
 	        Model model) {

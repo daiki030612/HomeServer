@@ -144,11 +144,10 @@
 					</a>
 
 
-					<a href="#" th:data-id="${folder.id}" onclick="deleteFolder(event, this)">
-
-						削除
-
-					</a>
+					<form th:action="@{/folders/delete/{id}(id=${folder.id})}" method="post"
+						onsubmit="return confirm('このフォルダーを削除しますか？');">
+						<button type="submit" class="menu-action-button">削除</button>
+					</form>
 
 				</div>
 
@@ -216,14 +215,10 @@
 
 
 							<!-- 動画削除 -->
-							<a th:href="@{/videos/delete/{id}(id=${video.id},
-							          parentId=${currentFolder != null ? currentFolder.id : null})}"
-								onclick="return confirm('この動画を削除しますか？');">
-
-
-								削除
-
-							</a>
+							<form th:action="@{/videos/delete/{id}(id=${video.id})}" method="post"
+								onsubmit="return confirm('この動画を削除しますか？');">
+								<button type="submit" class="menu-action-button">削除</button>
+							</form>
 
 						</div>
 
@@ -285,8 +280,8 @@
 
 
 								<!-- タグ削除 -->
-								<a class="tag-delete-button" th:href="@{/videos/tag/delete/{id}(id=${tag.id})}"
-									th:attr="data-tag=${tag.name}" onclick="
+								<form class="tag-delete-form" th:action="@{/videos/tag/delete/{id}(id=${tag.id})}"
+									method="post" th:attr="data-tag=${tag.name}" onsubmit="
 	                                   if (currentTags.includes(this.dataset.tag)) {
 	                                       alert('このタグは現在選択されているため削除できません。');
 	                                       return false;
@@ -294,10 +289,8 @@
 
 	                                   return confirm('このタグを削除しますか？');
 	                               " onmousedown="event.stopPropagation();">
-
-									×
-
-								</a>
+									<button type="submit" class="tag-delete-button">×</button>
+								</form>
 
 							</div>
 

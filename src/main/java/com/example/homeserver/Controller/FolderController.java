@@ -61,7 +61,7 @@ public class FolderController {
 	// フォルダー削除
 	// =========================
 
-	@GetMapping("/folders/delete/{id}")
+	@PostMapping("/folders/delete/{id}")
 	public String deleteFolder(
 	        @PathVariable Long id) {
 

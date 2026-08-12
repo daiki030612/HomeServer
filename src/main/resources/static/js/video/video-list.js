@@ -252,10 +252,7 @@ tagSuggestions
                  * タグ選択処理をしない
                  */
 
-                if (
-                    event.target
-                        .closest(".tag-delete-button")
-                ) {
+                if (event.target.closest(".tag-delete-form")) {
 
                     return;
 
@@ -833,34 +830,6 @@ document.addEventListener(
 
     }
 );
-
-// =========================
-// フォルダー削除
-// =========================
-
-function deleteFolder(event, button) {
-
-    event.preventDefault();
-    event.stopPropagation();
-
-
-    const id =
-        button.dataset.id;
-
-
-    if (!confirm(
-        "このフォルダーを削除しますか？"
-    )) {
-
-        return;
-
-    }
-
-
-    window.location.href =
-        "/folders/delete/" + id;
-
-}
 
 // =========================
 // 動画ドラッグ＆ドロップ
