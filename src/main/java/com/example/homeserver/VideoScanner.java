@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import com.example.homeserver.Entity.Video;
 import com.example.homeserver.Repository.VideoRepository;
+import com.example.homeserver.Service.InitialAdminService;
 import com.example.homeserver.Service.ThumbnailService;
 
 
@@ -23,6 +24,9 @@ public class VideoScanner {
     @Autowired
     private VideoRepository videoRepository;
 
+    @Autowired
+    private InitialAdminService initialAdminService;
+
     @Value("${video.storage.path}")
     private String videoStoragePath;
 
@@ -30,6 +34,11 @@ public class VideoScanner {
     private String thumbnailStoragePath;
 
     @PostConstruct
+    public void init() {
+        initialAdminService.createInitialAdminIfConfigured();
+        scanVideos();
+    }
+
     public void scanVideos() {
 
         File folder = new File(videoStoragePath);

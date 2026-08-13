@@ -52,16 +52,15 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 		        @Param("videoId") Long videoId,
 		        @Param("tagNames") List<String> tagNames);
 	
-	@Query("""
-		    SELECT DISTINCT v
-		    FROM Video v
-		    JOIN v.tags t
-		    WHERE t.name = :tag
-		      AND v.folder IS NULL
-		""")
-		List<Video> findByTag(
-		        @Param("tag") String tag,
-		        Sort sort);
+		@Query("""
+			    SELECT DISTINCT v
+			    FROM Video v
+			    JOIN v.tags t
+			    WHERE t.name = :tag
+			""")
+			List<Video> findByTag(
+			        @Param("tag") String tag,
+			        Sort sort);
 	
 	List<Video> findByFolderId(Long folderId);   
 	

@@ -47,8 +47,6 @@ public class FolderController {
 
 		folderService.renameFolder(id, name);
 		
-		System.out.println(parentId);
-		
 		// フォルダー内から変更した場合
 	    if (parentId != null) {
 	        return "redirect:/videos/folder/" + parentId;
@@ -61,7 +59,7 @@ public class FolderController {
 	// フォルダー削除
 	// =========================
 
-	@GetMapping("/folders/delete/{id}")
+	@PostMapping("/folders/delete/{id}")
 	public String deleteFolder(
 	        @PathVariable Long id) {
 

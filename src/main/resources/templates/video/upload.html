@@ -7,6 +7,8 @@
 	<title>Upload Video</title>
 	<link rel="stylesheet" th:href="@{/css/style.css}">
 	<link rel="stylesheet" th:href="@{/css/upload.css}">
+	<meta name="_csrf" th:content="${_csrf.token}">
+	<meta name="_csrf_header" th:content="${_csrf.headerName}">
 </head>
 
 <body>
@@ -17,10 +19,11 @@
 
 		<section class="upload-card">
 
-			<h1>Upload Video</h1>
+			<p class="eyebrow">ADD TO LIBRARY</p>
+			<h1>動画をアップロード</h1>
 
 			<p class="upload-description">
-				お気に入りの動画をHome Serverへ追加します
+				お気に入りの動画を、プライベートライブラリへ追加します。
 			</p>
 
 			<form id="upload-form" enctype="multipart/form-data">
@@ -33,8 +36,8 @@
 
 					<input id="file" type="file" name="file" accept="video/*" required>
 
-					<div class="upload-icon">
-						🎬
+					<div class="upload-icon" aria-hidden="true">
+						↑
 					</div>
 
 					<div class="select-video-container">

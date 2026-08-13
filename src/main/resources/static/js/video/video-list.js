@@ -252,10 +252,7 @@ tagSuggestions
                  * タグ選択処理をしない
                  */
 
-                if (
-                    event.target
-                        .closest(".tag-delete-button")
-                ) {
+                if (event.target.closest(".tag-delete-form")) {
 
                     return;
 
@@ -591,14 +588,23 @@ function moveVideo() {
     }
 
 
+    // CSRFトークン取得
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+    const options = {
+        method: "POST",
+        body: formData
+    };
+
+    if (csrfToken && csrfHeader) {
+        options.headers = {
+            [csrfHeader]: csrfToken
+        };
+    }
+
     // POST
-    fetch(
-        "/videos/move",
-        {
-            method: "POST",
-            body: formData
-        }
-    )
+    fetch("/videos/move", options)
         .then(function(response) {
 
             if (!response.ok) {
@@ -826,38 +832,64 @@ document.addEventListener(
 );
 
 // =========================
-// フォルダー削除
-// =========================
-
-function deleteFolder(event, button) {
-
-    event.preventDefault();
-    event.stopPropagation();
-
-
-    const id =
-        button.dataset.id;
-
-
-    if (!confirm(
-        "このフォルダーを削除しますか？"
-    )) {
-
-        return;
-
-    }
-
-
-    window.location.href =
-        "/folders/delete/" + id;
-
-}
-
-// =========================
 // 動画ドラッグ＆ドロップ
 // =========================
 
 let draggedVideoId = null;
+let dragScrollFrame = null;
+let dragScrollSpeed = 0;
+
+const dragScrollEdge = 110;
+const dragScrollMaxSpeed = 20;
+
+function updateDragAutoScroll(event) {
+
+    if (!draggedVideoId) {
+        return;
+    }
+
+    const pointerY = event.clientY;
+    const viewportHeight = window.innerHeight;
+
+    if (pointerY < dragScrollEdge) {
+        dragScrollSpeed = -dragScrollMaxSpeed
+            * Math.min(1, 1 - pointerY / dragScrollEdge);
+    } else if (pointerY > viewportHeight - dragScrollEdge) {
+        dragScrollSpeed = dragScrollMaxSpeed
+            * Math.min(1, 1 - (viewportHeight - pointerY) / dragScrollEdge);
+    } else {
+        dragScrollSpeed = 0;
+    }
+
+    if (dragScrollSpeed !== 0 && dragScrollFrame === null) {
+        dragScrollFrame = requestAnimationFrame(runDragAutoScroll);
+    }
+}
+
+function runDragAutoScroll() {
+
+    if (!draggedVideoId || dragScrollSpeed === 0) {
+        dragScrollFrame = null;
+        return;
+    }
+
+    window.scrollBy(0, dragScrollSpeed);
+    dragScrollFrame = requestAnimationFrame(runDragAutoScroll);
+}
+
+function stopDragAutoScroll() {
+
+    dragScrollSpeed = 0;
+
+    if (dragScrollFrame !== null) {
+        cancelAnimationFrame(dragScrollFrame);
+        dragScrollFrame = null;
+    }
+}
+
+document.addEventListener("dragover", updateDragAutoScroll);
+window.addEventListener("drop", stopDragAutoScroll);
+window.addEventListener("dragend", stopDragAutoScroll);
 
 
 // ドラッグ開始
@@ -878,6 +910,8 @@ function dragVideo(event, card) {
 
 // ドラッグ終了
 function dragVideoEnd(event, card) {
+
+    stopDragAutoScroll();
 
     card.classList.remove("dragging");
 
@@ -930,6 +964,8 @@ function dropVideo(event, folder) {
 
     event.preventDefault();
 
+    stopDragAutoScroll();
+
     folder.classList.remove("drag-over");
 
     const videoId =
@@ -964,7 +1000,7 @@ function moveVideoToFolder(videoId, folderId) {
 
 
     // フォルダーIDがある場合だけ送信
-    if (folderId !== null && folderId !== undefined) {
+    if (folderId !== null && folderId !== undefined && folderId !== "") {
 
         formData.append(
             "folderId",
@@ -974,13 +1010,22 @@ function moveVideoToFolder(videoId, folderId) {
     }
 
 
-    fetch(
-        "/videos/move",
-        {
-            method: "POST",
-            body: formData
-        }
-    )
+    // CSRFトークン取得
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+    const options = {
+        method: "POST",
+        body: formData
+    };
+
+    if (csrfToken && csrfHeader) {
+        options.headers = {
+            [csrfHeader]: csrfToken
+        };
+    }
+
+    fetch("/videos/move", options)
         .then(function(response) {
 
             if (!response.ok) {
@@ -1005,60 +1050,6 @@ function moveVideoToFolder(videoId, folderId) {
 
         });
 
-}
-
-// =========================
-// パンくずへ動画をドロップ
-// =========================
-
-function dropVideoToBreadcrumb(event, breadcrumb) {
-
-    event.preventDefault();
-
-    const videoId =
-        event.dataTransfer.getData("text/plain");
-
-    const folderId =
-        breadcrumb.dataset.id;
-
-    if (!videoId || !folderId) {
-        return;
-    }
-
-    moveVideoToFolder(
-        videoId,
-        folderId
-    );
-}
-
-// =========================
-// パンくずへ動画をドロップ
-// =========================
-
-function dropVideoToBreadcrumb(event, breadcrumb) {
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const videoId =
-        event.dataTransfer.getData("text/plain");
-
-    const folderId =
-        breadcrumb.dataset.id;
-
-    console.log("パンくずへドロップ");
-    console.log("videoId =", videoId);
-    console.log("folderId =", folderId);
-
-    if (!videoId || !folderId) {
-        console.log("ID取得失敗");
-        return;
-    }
-
-    moveVideoToFolder(
-        videoId,
-        folderId
-    );
 }
 
 // =========================

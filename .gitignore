@@ -32,9 +32,6 @@ build/
 ### VS Code ###
 .vscode/
 
-# Spring Boot 設定
-src/main/resources/application.properties
-
 # 動画ファイル
 *.mp4
 *.mov

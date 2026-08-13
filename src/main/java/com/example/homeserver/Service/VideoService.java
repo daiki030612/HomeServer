@@ -1,16 +1,20 @@
 package com.example.homeserver.Service;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,12 +28,25 @@ import com.example.homeserver.Repository.VideoRepository;
 
 @Service
 public class VideoService {
+	private static final Logger logger = LoggerFactory.getLogger(VideoService.class);
 
 	@Autowired
 	private VideoRepository videoRepository;
 
 	@Autowired
 	private ThumbnailService thumbnailService;
+
+	@Autowired
+	private VideoProbeService videoProbeService;
+
+	@Autowired
+	private IPhoneSafariCompatibilityService compatibilityService;
+
+	@Autowired
+	private VideoRemuxService videoRemuxService;
+
+	@Autowired
+	private VideoAudioTranscodeService videoAudioTranscodeService;
 
 	@Autowired
 	private TagRepository tagRepository;
@@ -40,6 +57,9 @@ public class VideoService {
 	// 動画保存場所
 	@Value("${video.storage.path}")
 	private String videoStoragePath;
+
+	@Value("${thumbnail.storage.path}")
+	private String thumbnailStoragePath;
 
 	// 動画一覧取得
 	public List<Video> getAllVideos(String sort) {
@@ -86,8 +106,7 @@ public class VideoService {
 
 	}
 
-	// 動画再生用Resource取得
-	public Resource getVideo(Long id) {
+	public Path getVideoPath(Long id) {
 
 		Optional<Video> optionalVideo = videoRepository.findById(id);
 
@@ -97,13 +116,14 @@ public class VideoService {
 
 		Video video = optionalVideo.get();
 
+		Path storageRoot = storageRoot(videoStoragePath);
 		Path path;
 
 		// filePathが登録されている場合
 		if (video.getFilePath() != null &&
 				!video.getFilePath().isBlank()) {
 
-			path = Paths.get(video.getFilePath());
+			path = Paths.get(video.getFilePath()).toAbsolutePath().normalize();
 
 		} else {
 
@@ -113,52 +133,108 @@ public class VideoService {
 					video.getFileName());
 		}
 
-		Resource resource = new FileSystemResource(path);
-
-		if (resource.exists() &&
-				resource.isReadable()) {
-
-			return resource;
+		try {
+			ensureWithinStorage(path, storageRoot);
+			return Files.isRegularFile(path) && Files.isReadable(path) ? path : null;
+		} catch (IllegalArgumentException e) {
+			logger.warn("Rejected video path outside configured storage for video id={}", id);
+			return null;
 		}
-
-		return null;
 	}
 
 	// 動画アップロード
 	public void upload(MultipartFile file, Long folderId) {
+		Path savePath = null;
+		Path adoptedVideoPath = null;
+		Path thumbnailPath = null;
+		UploadArtifacts artifacts = null;
+		boolean databaseSaved = false;
 
 		try {
+				// ファイルが空でないかチェック
+				if (file.isEmpty()) {
+					throw new RuntimeException("ファイルが選択されていません。");
+				}
 
-			// 拡張子取得
-			String originalName = file.getOriginalFilename();
+				// 拡張子取得
+				String originalName = file.getOriginalFilename();
+				String extension = "";
 
-			String extension = "";
+				if (originalName != null && originalName.contains(".")) {
+					extension = originalName.substring(
+							originalName.lastIndexOf(".")).toLowerCase();
+				}
 
-			if (originalName != null && originalName.contains(".")) {
-				extension = originalName.substring(
-						originalName.lastIndexOf("."));
-			}
+				// 動画ファイルかチェック（簡易的）
+				if (!extension.equals(".mp4") && !extension.equals(".mov") && !extension.equals(".avi")) {
+					throw new RuntimeException("許可されていないファイル形式です。(.mp4, .mov, .avi のみ)");
+				}
 
-			// 保存用ファイル名
-			String fileName = UUID.randomUUID() + extension;
+				// 保存用ファイル名
+				String fileName = UUID.randomUUID() + extension;
 
 			// 動画保存先
-			Path savePath = Paths.get(
-					videoStoragePath,
-					fileName);
-
-			System.out.println("====================");
-			System.out.println("ORIGINAL NAME : " + originalName);
-			System.out.println("GENERATED NAME: " + fileName);
-			System.out.println("SAVE PATH     : " + savePath);
-			System.out.println("====================");
-
-			// ★① ファイル保存
-			System.out.println("① ファイル保存開始");
+			Path videoStorageRoot = storageRoot(videoStoragePath);
+			Files.createDirectories(videoStorageRoot);
+			Path thumbnailStorageRoot = storageRoot(thumbnailStoragePath);
+			Files.createDirectories(thumbnailStorageRoot);
+			artifacts = new UploadArtifacts(videoStorageRoot, thumbnailStorageRoot);
+			savePath = artifacts.track(resolveWithinStorage(videoStorageRoot, fileName));
 
 			file.transferTo(savePath.toFile());
 
-			System.out.println("② ファイル保存完了");
+			VideoMetadata metadata = videoProbeService.probe(savePath, videoStorageRoot);
+			VideoCompatibilityDecision decision = compatibilityService.evaluate(metadata);
+			logCompatibility(originalName, metadata, compatibilityService.assess(metadata));
+
+			if (decision == VideoCompatibilityDecision.PASSTHROUGH) {
+				adoptedVideoPath = savePath;
+			} else if (decision == VideoCompatibilityDecision.REMUX) {
+				String baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+				Path temporaryRemuxPath = artifacts.track(resolveWithinStorage(
+						videoStorageRoot, "." + baseName + ".remux.tmp.mp4"));
+				Path finalRemuxPath = artifacts.track(resolveWithinStorage(
+						videoStorageRoot, baseName + ".mp4"));
+
+				int normalVideoStreamIndex = metadata.normalVideoStreams().stream()
+						.findFirst()
+						.orElseThrow(() -> new IllegalStateException("Normal video stream is missing"))
+						.streamIndex();
+				videoRemuxService.remux(
+						savePath, temporaryRemuxPath, videoStorageRoot, normalVideoStreamIndex);
+				VideoMetadata remuxedMetadata = videoProbeService.probe(
+						temporaryRemuxPath, videoStorageRoot);
+				if (compatibilityService.evaluate(remuxedMetadata)
+						!= VideoCompatibilityDecision.PASSTHROUGH) {
+					throw new IllegalStateException("Remuxed video did not pass compatibility validation");
+				}
+
+				moveIntoPlace(temporaryRemuxPath, finalRemuxPath);
+				adoptedVideoPath = finalRemuxPath;
+				fileName = finalRemuxPath.getFileName().toString();
+			} else if (decision == VideoCompatibilityDecision.TRANSCODE_AUDIO) {
+				String baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+				Path temporaryTranscodePath = artifacts.track(resolveWithinStorage(
+						videoStorageRoot, "." + baseName + ".audio.tmp.mp4"));
+				Path finalTranscodePath = artifacts.track(resolveWithinStorage(
+						videoStorageRoot, baseName + ".mp4"));
+
+				videoAudioTranscodeService.transcodeAudio(
+						savePath, temporaryTranscodePath, videoStorageRoot);
+				VideoMetadata transcodedMetadata = videoProbeService.probe(
+						temporaryTranscodePath, videoStorageRoot);
+				if (compatibilityService.evaluate(transcodedMetadata)
+						!= VideoCompatibilityDecision.PASSTHROUGH) {
+					throw new IllegalStateException(
+							"Audio-transcoded video did not pass compatibility validation");
+				}
+
+				moveIntoPlace(temporaryTranscodePath, finalTranscodePath);
+				adoptedVideoPath = finalTranscodePath;
+				fileName = finalTranscodePath.getFileName().toString();
+			} else {
+				throw new UnsupportedVideoConversionException();
+			}
 
 			// サムネイル名
 			String thumbnailName = fileName.substring(
@@ -167,19 +243,11 @@ public class VideoService {
 					+ ".jpg";
 
 			// サムネイル保存先
-			Path thumbnailPath = Paths.get(
-					videoStoragePath,
-					"thumbnails",
-					thumbnailName);
-
-			// ★② サムネイル生成
-			System.out.println("③ サムネイル生成開始");
+			thumbnailPath = artifacts.track(resolveWithinStorage(thumbnailStorageRoot, thumbnailName));
 
 			thumbnailService.createThumbnail(
-					savePath.toString(),
+					adoptedVideoPath.toString(),
 					thumbnailPath.toString());
-
-			System.out.println("④ サムネイル生成完了");
 
 			// DB登録
 			Video video = new Video();
@@ -194,7 +262,7 @@ public class VideoService {
 					thumbnailName);
 
 			video.setFilePath(
-					savePath.toString());
+					adoptedVideoPath.toString());
 
 			video.setThumbnailPath(
 					thumbnailPath.toString());
@@ -217,23 +285,26 @@ public class VideoService {
 
 			}
 
-			System.out.println("====================");
-			System.out.println("FILE PATH : " + video.getFilePath());
-			System.out.println("THUMB PATH: " + video.getThumbnailPath());
-			System.out.println("====================");
+			videoRepository.saveAndFlush(video);
+			databaseSaved = true;
+			artifacts.cleanupAfterSuccess(adoptedVideoPath, thumbnailPath);
 
-			// ★③ DB保存
-			System.out.println("⑤ DB保存開始");
-
-			videoRepository.save(video);
-
-			System.out.println("⑥ DB保存完了");
-
-		} catch (Exception e) {
-
-			e.printStackTrace();
-
-		}
+			} catch (Exception e) {
+				if (!databaseSaved) {
+					if (artifacts != null) {
+						artifacts.cleanupAfterFailure(e);
+					} else {
+						compensateUpload(savePath, thumbnailPath, e);
+					}
+				}
+				if (e instanceof InvalidVideoFileException invalidVideo) {
+					throw invalidVideo;
+				}
+				if (e instanceof UnsupportedVideoConversionException unsupported) {
+					throw unsupported;
+				}
+				throw new RuntimeException("アップロードに失敗しました。", e);
+			}
 
 	}
 
@@ -241,35 +312,27 @@ public class VideoService {
 	public void deleteVideo(Long id) {
 
 		Video video = videoRepository.findById(id)
-				.orElseThrow();
+				.orElse(null);
+		if (video == null) return;
+
+		Path videoFile = resolveStoredPath(
+				video.getFilePath(), video.getFileName(), storageRoot(videoStoragePath));
+		Path thumbnailFile = resolveStoredPath(
+				video.getThumbnailPath(), video.getThumbnailName(), storageRoot(thumbnailStoragePath));
 
 		// 動画削除
 
-		if (video.getFilePath() != null) {
+		if (videoFile != null) {
 
-			File videoFile = new File(
-					video.getFilePath());
-
-			if (videoFile.exists()) {
-
-				videoFile.delete();
-
-			}
+			deleteAndConfirm(videoFile);
 
 		}
 
 		// サムネ削除
 
-		if (video.getThumbnailPath() != null) {
+		if (thumbnailFile != null) {
 
-			File thumbnailFile = new File(
-					video.getThumbnailPath());
-
-			if (thumbnailFile.exists()) {
-
-				thumbnailFile.delete();
-
-			}
+			deleteAndConfirm(thumbnailFile);
 
 		}
 
@@ -277,6 +340,149 @@ public class VideoService {
 
 		videoRepository.delete(video);
 
+	}
+
+	private Path storageRoot(String configuredPath) {
+		return Paths.get(configuredPath).toAbsolutePath().normalize();
+	}
+
+	private void logCompatibility(
+			String originalName,
+			VideoMetadata metadata,
+			VideoCompatibilityAssessment assessment) {
+		if (assessment == null) {
+			return;
+		}
+
+		VideoStreamMetadata video = metadata.videoStreams().stream()
+				.filter(stream -> !stream.auxiliary())
+				.findFirst()
+				.orElse(metadata.videoStreams().getFirst());
+		AudioStreamMetadata audio = metadata.audioStreams().isEmpty()
+				? null : metadata.audioStreams().getFirst();
+
+		logger.info(
+				"Video compatibility: originalName={}, container={}, videoCodec={}, videoCodecTag={}, "
+				+ "videoProfile={}, videoLevel={}, pixelFormat={}, colorSpace={}, colorTransfer={}, "
+				+ "colorPrimaries={}, hdrMetadata={}, dolbyVision={}, resolution={}x{}, fps={}, audioCodec={}, "
+				+ "audioProfile={}, audioSampleRate={}, audioChannels={}, fastStart={}, "
+				+ "videoStreamCount={}, audioStreamCount={}, decision={}, reasons={}",
+				safeLogValue(originalName),
+				safeLogValue(metadata.container().formatName()),
+				safeLogValue(video.codec()),
+				safeLogValue(video.codecTag()),
+				safeLogValue(video.profile()),
+				video.level(),
+				safeLogValue(video.pixelFormat()),
+				safeLogValue(video.colorSpace()),
+				safeLogValue(video.colorTransfer()),
+				safeLogValue(video.colorPrimaries()),
+				video.hdrMetadata(),
+				video.dolbyVision(),
+				video.width(), video.height(), video.framesPerSecond(),
+				audio == null ? "none" : safeLogValue(audio.codec()),
+				audio == null ? "none" : safeLogValue(audio.profile()),
+				audio == null ? 0 : audio.sampleRate(),
+				audio == null ? 0 : audio.channels(),
+				metadata.container().fastStart(),
+				metadata.videoStreams().size(),
+				metadata.audioStreams().size(),
+				assessment.decision(),
+				safeLogValue(String.join("; ", assessment.reasons())));
+	}
+
+	private String safeLogValue(String value) {
+		if (value == null) {
+			return "unknown";
+		}
+		return value.replaceAll("[\\r\\n\\t\\p{Cntrl}]", "_");
+	}
+
+	private void moveIntoPlace(Path source, Path target) throws IOException {
+		try {
+			Files.move(source, target,
+					StandardCopyOption.ATOMIC_MOVE,
+					StandardCopyOption.REPLACE_EXISTING);
+		} catch (AtomicMoveNotSupportedException e) {
+			Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+		}
+	}
+
+	private Path resolveWithinStorage(Path storageRoot, String fileName) {
+		Path resolved = storageRoot.resolve(fileName).toAbsolutePath().normalize();
+		ensureWithinStorage(resolved, storageRoot);
+		return resolved;
+	}
+
+	private Path resolveStoredPath(String storedPath, String fileName, Path storageRoot) {
+		if (storedPath != null && !storedPath.isBlank()) {
+			Path resolved = Paths.get(storedPath).toAbsolutePath().normalize();
+			ensureWithinStorage(resolved, storageRoot);
+			return resolved;
+		}
+
+		if (fileName == null || fileName.isBlank()) {
+			return null;
+		}
+
+		return resolveWithinStorage(storageRoot, fileName);
+	}
+
+	private void ensureWithinStorage(Path path, Path storageRoot) {
+		try {
+			Path verifiedRoot = Files.exists(storageRoot)
+					? storageRoot.toRealPath()
+					: storageRoot;
+			Path verifiedPath;
+
+			if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+				verifiedPath = path.toRealPath();
+			} else if (path.getParent() != null && Files.exists(path.getParent())) {
+				verifiedPath = path.getParent().toRealPath()
+						.resolve(path.getFileName()).normalize();
+			} else {
+				verifiedPath = path;
+			}
+
+			if (!verifiedPath.startsWith(verifiedRoot)) {
+				throw new IllegalArgumentException(
+						"Media path is outside the configured storage directory");
+			}
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Media path could not be validated", e);
+		}
+	}
+
+	private void deleteAndConfirm(Path path) {
+		try {
+			Files.deleteIfExists(path);
+			if (Files.exists(path)) {
+				throw new IOException("File still exists after deletion: " + path);
+			}
+		} catch (IOException e) {
+			throw new IllegalStateException(
+					"Physical media deletion failed; the database record was not deleted", e);
+		}
+	}
+
+	private void compensateUpload(Path videoPath, Path thumbnailPath, Exception originalFailure) {
+		deleteCompensationFile(thumbnailPath, originalFailure);
+		deleteCompensationFile(videoPath, originalFailure);
+	}
+
+	private void deleteCompensationFile(Path path, Exception originalFailure) {
+		if (path == null) {
+			return;
+		}
+
+		try {
+			Files.deleteIfExists(path);
+			if (Files.exists(path)) {
+				throw new IOException("Compensation deletion did not remove: " + path);
+			}
+		} catch (IOException cleanupFailure) {
+			originalFailure.addSuppressed(cleanupFailure);
+		}
 	}
 
 	// フォルダ内の動画取得
@@ -353,7 +559,7 @@ public class VideoService {
 				.orElse(null);
 
 		if (video == null) {
-			return;
+			throw new IllegalArgumentException("Video was not found");
 		}
 		// =========================
 		// ルートへ移動
@@ -374,7 +580,7 @@ public class VideoService {
 					.orElse(null);
 
 			if (folder == null) {
-				return;
+				throw new IllegalArgumentException("Folder was not found");
 			}
 
 			video.setFolder(folder);

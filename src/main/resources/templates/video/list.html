@@ -6,12 +6,20 @@
 	<title>Home Server</title>
 	<link rel="stylesheet" th:href="@{/css/style.css}">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<!-- CSRF Token -->
+	<meta name="_csrf" th:content="${_csrf.token}"/>
+	<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
 </head>
 
 <body>
 	<div th:replace="~{fragments/header :: header}"></div>
 
 	<div class="container">
+		<section class="library-hero">
+			<p class="eyebrow">PRIVATE MEDIA LIBRARY</p>
+			<h1 th:text="${currentFolder != null ? currentFolder.name : 'あなたのライブラリ'}">あなたのライブラリ</h1>
+			<p>大切な映像を、ひとつの美しい場所に。</p>
+		</section>
 
 		<!-- =========================
      パンくずリスト
@@ -67,8 +75,8 @@
 
 			<input type="text" name="keyword" placeholder="動画を検索..." class="search-input" th:value="${keyword}">
 
-			<button type="submit" class="search-button">
-				🔍
+			<button type="submit" class="search-button" aria-label="検索">
+				⌕
 			</button>
 
 			<select name="sort" onchange="this.form.submit()">
@@ -141,11 +149,10 @@
 					</a>
 
 
-					<a href="#" th:data-id="${folder.id}" onclick="deleteFolder(event, this)">
-
-						削除
-
-					</a>
+					<form th:action="@{/folders/delete/{id}(id=${folder.id})}" method="post"
+						onsubmit="return confirm('このフォルダーを削除しますか？');">
+						<button type="submit" class="menu-action-button">削除</button>
+					</form>
 
 				</div>
 
@@ -213,14 +220,10 @@
 
 
 							<!-- 動画削除 -->
-							<a th:href="@{/videos/delete/{id}(id=${video.id},
-							          parentId=${currentFolder != null ? currentFolder.id : null})}"
-								onclick="return confirm('この動画を削除しますか？');">
-
-
-								削除
-
-							</a>
+							<form th:action="@{/videos/delete/{id}(id=${video.id})}" method="post"
+								onsubmit="return confirm('この動画を削除しますか？');">
+								<button type="submit" class="menu-action-button">削除</button>
+							</form>
 
 						</div>
 
@@ -282,8 +285,8 @@
 
 
 								<!-- タグ削除 -->
-								<a class="tag-delete-button" th:href="@{/videos/tag/delete/{id}(id=${tag.id})}"
-									th:attr="data-tag=${tag.name}" onclick="
+								<form class="tag-delete-form" th:action="@{/videos/tag/delete/{id}(id=${tag.id})}"
+									method="post" th:attr="data-tag=${tag.name}" onsubmit="
 	                                   if (currentTags.includes(this.dataset.tag)) {
 	                                       alert('このタグは現在選択されているため削除できません。');
 	                                       return false;
@@ -291,10 +294,8 @@
 
 	                                   return confirm('このタグを削除しますか？');
 	                               " onmousedown="event.stopPropagation();">
-
-									×
-
-								</a>
+									<button type="submit" class="tag-delete-button">×</button>
+								</form>
 
 							</div>
 

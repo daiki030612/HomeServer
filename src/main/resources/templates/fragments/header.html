@@ -4,20 +4,24 @@
 <!-- Header Fragment -->
 <header th:fragment="header" class="header">
 	<div class="header-inner">
-		<a href="/videos" class="logo">Home Server</a>
+		<a href="/videos" class="logo" aria-label="Home Server ホーム">
+			<span class="logo-mark">H</span>
+			<span>Home Server</span>
+		</a>
 
 		<nav class="nav">
 
 			<!-- スマホ用ハンバーガーボタン -->
-			<button type="button" class="hamburger-button" onclick="toggleMobileMenu()">
-				☰
+			<button type="button" class="hamburger-button" onclick="toggleMobileMenu()"
+				aria-label="メニューを開く" aria-expanded="false">
+				<span></span><span></span>
 			</button>
 
 
 			<div class="mobile-menu">
 
 				<a href="/videos">
-					Videos
+					ライブラリ
 				</a>
 
 
@@ -35,18 +39,23 @@
 
 				<!-- 新しいフォルダ -->
 				<a href="#" onclick="openFolderModal(); return false;"> 
-					📁 新しいフォルダ 
+					新しいフォルダ
 				</a>
 
 
-				<!-- アップロード -->
-				<a th:href="@{/videos/upload(
-		            folderId=${currentFolder != null ? currentFolder.id : null}
-		        )}">
-					Upload
-				</a>
+					<!-- アップロード -->
+					<a th:href="@{/videos/upload(
+			            folderId=${currentFolder != null ? currentFolder.id : null}
+			        )}">
+						アップロード
+					</a>
 
-			</div>
+					<!-- ログアウト -->
+					<form th:action="@{/logout}" method="post" class="logout-form">
+						<button type="submit" class="logout-link">ログアウト</button>
+					</form>
+
+				</div>
 
 		</nav>
 
@@ -59,6 +68,8 @@
 					document.querySelector(".mobile-menu");
 
 				menu.classList.toggle("show");
+				document.querySelector(".hamburger-button")
+					.setAttribute("aria-expanded", menu.classList.contains("show"));
 
 			}
 
