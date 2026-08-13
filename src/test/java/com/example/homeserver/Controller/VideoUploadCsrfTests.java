@@ -5,11 +5,15 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.homeserver.Config.SecurityConfig;
+import com.example.homeserver.Entity.Folder;
 import com.example.homeserver.Repository.TagRepository;
 import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
@@ -113,5 +118,31 @@ class VideoUploadCsrfTests {
                         .with(csrf().asHeader()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(UnsupportedVideoConversionException.USER_MESSAGE));
+    }
+
+    @Test
+    void uploadPagePreservesSelectedFolder() throws Exception {
+        Folder folder = new Folder();
+        folder.setId(42L);
+        when(folderService.getFolderById(42L)).thenReturn(folder);
+
+        mockMvc.perform(get("/videos/upload").param("folderId", "42").with(user("uploader")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("video/upload"))
+                .andExpect(model().attribute("currentFolder", folder));
+    }
+
+    @Test
+    void unexpectedUploadFailureDoesNotExposeInternalMessage() throws Exception {
+        MockMultipartFile video = new MockMultipartFile(
+                "file", "sample.mp4", "video/mp4", new byte[] { 1 });
+        doThrow(new IllegalStateException("jdbc:mysql://secret-host internal failure"))
+                .when(videoService).upload(any(MultipartFile.class), isNull());
+
+        mockMvc.perform(multipart("/videos/upload").file(video)
+                        .with(user("uploader")).with(csrf().asHeader()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(
+                        "アップロードに失敗しました。保存先の空き容量とサーバー設定を確認してください。"));
     }
 }

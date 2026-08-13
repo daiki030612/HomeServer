@@ -30,6 +30,7 @@
 #videoPlayer {
 
 	width: 100%;
+	height: auto;
 
 	/*
      * プレイヤーの高さを画面内に収める
@@ -693,4 +694,11 @@
 
 @media (max-width: 600px) {
 	.video-player-container { border-radius: 16px; }
+	.seek-bar { min-height: 24px; margin-bottom: 2px; }
+	.video-info, .related-videos { padding-left: 16px; padding-right: 16px; }
+}
+
+@media (max-width: 380px) {
+	.volume-control { display: none; }
+	.control-bottom { gap: 4px; }
 }

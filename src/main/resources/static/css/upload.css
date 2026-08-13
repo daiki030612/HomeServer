@@ -114,6 +114,7 @@
 
 #file-name {
 	display: block;
+	overflow-wrap: anywhere;
 	margin-top: 18px;
 	color: #86868b;
 }

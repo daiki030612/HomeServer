@@ -15,8 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -108,12 +106,6 @@ public class VideoService {
 
 	}
 
-	// 動画再生用Resource取得
-	public Resource getVideo(Long id) {
-		Path path = getVideoPath(id);
-		return path == null ? null : new FileSystemResource(path);
-	}
-
 	public Path getVideoPath(Long id) {
 
 		Optional<Video> optionalVideo = videoRepository.findById(id);
@@ -189,18 +181,7 @@ public class VideoService {
 			artifacts = new UploadArtifacts(videoStorageRoot, thumbnailStorageRoot);
 			savePath = artifacts.track(resolveWithinStorage(videoStorageRoot, fileName));
 
-			System.out.println("====================");
-			System.out.println("ORIGINAL NAME : " + originalName);
-			System.out.println("GENERATED NAME: " + fileName);
-			System.out.println("SAVE PATH     : " + savePath);
-			System.out.println("====================");
-
-			// ★① ファイル保存
-			System.out.println("① ファイル保存開始");
-
 			file.transferTo(savePath.toFile());
-
-			System.out.println("② ファイル保存完了");
 
 			VideoMetadata metadata = videoProbeService.probe(savePath, videoStorageRoot);
 			VideoCompatibilityDecision decision = compatibilityService.evaluate(metadata);
@@ -264,14 +245,9 @@ public class VideoService {
 			// サムネイル保存先
 			thumbnailPath = artifacts.track(resolveWithinStorage(thumbnailStorageRoot, thumbnailName));
 
-			// ★② サムネイル生成
-			System.out.println("③ サムネイル生成開始");
-
 			thumbnailService.createThumbnail(
 					adoptedVideoPath.toString(),
 					thumbnailPath.toString());
-
-			System.out.println("④ サムネイル生成完了");
 
 			// DB登録
 			Video video = new Video();
@@ -309,19 +285,9 @@ public class VideoService {
 
 			}
 
-			System.out.println("====================");
-			System.out.println("FILE PATH : " + video.getFilePath());
-			System.out.println("THUMB PATH: " + video.getThumbnailPath());
-			System.out.println("====================");
-
-			// ★③ DB保存
-			System.out.println("⑤ DB保存開始");
-
 			videoRepository.saveAndFlush(video);
 			databaseSaved = true;
 			artifacts.cleanupAfterSuccess(adoptedVideoPath, thumbnailPath);
-
-			System.out.println("⑥ DB保存完了");
 
 			} catch (Exception e) {
 				if (!databaseSaved) {
@@ -346,7 +312,8 @@ public class VideoService {
 	public void deleteVideo(Long id) {
 
 		Video video = videoRepository.findById(id)
-				.orElseThrow();
+				.orElse(null);
+		if (video == null) return;
 
 		Path videoFile = resolveStoredPath(
 				video.getFilePath(), video.getFileName(), storageRoot(videoStoragePath));
@@ -592,7 +559,7 @@ public class VideoService {
 				.orElse(null);
 
 		if (video == null) {
-			return;
+			throw new IllegalArgumentException("Video was not found");
 		}
 		// =========================
 		// ルートへ移動
@@ -613,7 +580,7 @@ public class VideoService {
 					.orElse(null);
 
 			if (folder == null) {
-				return;
+				throw new IllegalArgumentException("Folder was not found");
 			}
 
 			video.setFolder(folder);

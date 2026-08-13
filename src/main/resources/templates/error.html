@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>エラー - Home Server</title>
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body class="login-page">
+	<main class="login-container" role="main">
+		<div class="login-brand">
+			<span class="logo-mark" aria-hidden="true">H</span>
+		</div>
+		<p class="eyebrow">REQUEST ERROR</p>
+		<h1>処理を完了できませんでした</h1>
+		<p class="login-description">
+			時間をおいて再度お試しください。問題が続く場合は、サーバーのログと保存先を確認してください。
+		</p>
+		<a class="login-button error-home-link" th:href="@{/videos}">ライブラリへ戻る</a>
+	</main>
+</body>
+</html>

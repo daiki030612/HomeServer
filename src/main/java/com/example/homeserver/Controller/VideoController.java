@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -20,15 +22,17 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 
 import com.example.homeserver.Entity.Folder;
 import com.example.homeserver.Entity.Video;
-import com.example.homeserver.Repository.TagRepository;
 import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
+import com.example.homeserver.Service.InvalidVideoFileException;
+import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
 @Controller
 @RequestMapping("/videos")
 public class VideoController {
+	private static final Logger logger = LoggerFactory.getLogger(VideoController.class);
 
 	@Autowired
 	private VideoService videoService;
@@ -38,9 +42,6 @@ public class VideoController {
 
 	@Autowired
 	private FolderService folderService;
-
-	@Autowired
-	private TagRepository tagRepository;
 
 	@Autowired
 	private TagService tagService;
@@ -270,7 +271,14 @@ public class VideoController {
 	// =========================
 
 	@GetMapping("/upload")
-	public String uploadPage() {
+	public String uploadPage(
+			@RequestParam(value = "folderId", required = false) Long folderId,
+			Model model) {
+		if (folderId != null) {
+			Folder folder = folderService.getFolderById(folderId);
+			if (folder == null) return "redirect:/videos";
+			model.addAttribute("currentFolder", folder);
+		}
 
 		return "video/upload";
 
@@ -288,8 +296,12 @@ public class VideoController {
 	    try {
 	        videoService.upload(file, folderId);
 	        return ResponseEntity.ok().build();
-	    } catch (Exception e) {
+	    } catch (InvalidVideoFileException | UnsupportedVideoConversionException e) {
 	        return ResponseEntity.badRequest().body(e.getMessage());
+	    } catch (Exception e) {
+	        logger.error("Video upload failed", e);
+	        return ResponseEntity.badRequest().body(
+	                "アップロードに失敗しました。保存先の空き容量とサーバー設定を確認してください。");
 	    }
 	}
 	// =========================
@@ -316,6 +328,9 @@ public class VideoController {
 			Model model) {
 
 		Video video = videoService.getVideoById(id);
+		if (video == null) {
+			return "redirect:/videos";
+		}
 
 		model.addAttribute(
 				"video",
@@ -378,7 +393,8 @@ public class VideoController {
 		        videoService.moveVideo(videoId, folderId);
 		        return ResponseEntity.ok().build();
 		    } catch (Exception e) {
-		        return ResponseEntity.badRequest().body(e.getMessage());
+		        logger.warn("Video move failed: {}", e.getMessage());
+		        return ResponseEntity.badRequest().body("動画を移動できませんでした。");
 		    }
 		}
 

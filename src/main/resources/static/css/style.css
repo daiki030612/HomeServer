@@ -1348,6 +1348,8 @@ body {
 html { scroll-behavior: smooth; }
 body {
 	min-height: 100vh;
+	max-width: 100%;
+	overflow-x: hidden;
 	background: radial-gradient(circle at 8% 0%, rgba(0, 113, 227, .08), transparent 28rem), var(--canvas);
 	color: var(--ink);
 	font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Noto Sans JP", sans-serif;
@@ -1390,6 +1392,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 .library-hero > p:last-child { margin: 16px 0 0; color: var(--muted); font-size: clamp(17px, 2vw, 22px); }
 .breadcrumb { display: flex; align-items: center; min-height: 34px; margin-bottom: 18px; color: var(--muted); font-size: 13px; }
+.breadcrumb { flex-wrap: wrap; overflow-wrap: anywhere; }
 .breadcrumb a { color: var(--apple-blue); font-weight: 500; }
 
 .container > .header-search {
@@ -1476,6 +1479,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .form-group label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 13px; font-weight: 600; }
 .login-button { width: 100%; min-height: 50px; margin-top: 8px; font-size: 16px; }
 .login-button:hover, .modal-content button[type="submit"]:hover { background: var(--apple-blue-hover); }
+.error-home-link { display: flex; align-items: center; justify-content: center; color: #fff; text-decoration: none; }
 .error-message, .logout-message { margin-bottom: 20px; padding: 12px 14px; border-radius: 12px; font-size: 13px; }
 .error-message { background: rgba(255,59,48,.09); color: #c5211a; }
 .logout-message { background: rgba(52,199,89,.1); color: #167a32; }
@@ -1491,6 +1495,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 	.hamburger-button { display: grid; place-content: center; gap: 6px; width: 40px; height: 40px; }
 	.hamburger-button span { display: block; width: 18px; height: 1.5px; border-radius: 2px; background: var(--ink); }
 	.mobile-menu { top: 46px; width: min(300px, calc(100vw - 32px)); border: 1px solid rgba(255,255,255,.75); border-radius: 20px; box-shadow: var(--shadow-float); }
+	.mobile-menu > a, .mobile-menu button { min-height: 44px; display: flex; align-items: center; }
 	.library-hero { margin: 4px 0 34px; }
 	.library-hero h1 { font-size: 40px; }
 	.container > .header-search { grid-template-columns: minmax(0, 1fr) 42px; width: 100%; }
@@ -1498,4 +1503,5 @@ button, a { -webkit-tap-highlight-color: transparent; }
 	.folder-grid, .video-container { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 	.folder-card, .folder-link { min-height: 118px; }
 	.login-container { padding: 34px 24px; border-radius: 26px; }
+	.modal-content { max-height: calc(100dvh - 32px); overflow-y: auto; }
 }

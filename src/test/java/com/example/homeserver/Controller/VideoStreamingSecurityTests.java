@@ -6,7 +6,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -74,5 +76,23 @@ class VideoStreamingSecurityTests {
 				.andExpect(status().isNotFound());
 
 		verifyNoInteractions(videoStreamService);
+	}
+
+	@Test
+	void modifyingRequestRequiresCsrf() throws Exception {
+		mockMvc.perform(post("/videos/delete/1").with(user("viewer")))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(post("/videos/delete/1").with(user("viewer")).with(csrf()))
+				.andExpect(status().is3xxRedirection());
+
+		verify(videoService).deleteVideo(1L);
+	}
+
+	@Test
+	void logoutPostWithCsrfReturnsToLogin() throws Exception {
+		mockMvc.perform(post("/logout").with(user("viewer")).with(csrf()))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(header().string(HttpHeaders.LOCATION, "/login?logout"));
 	}
 }
