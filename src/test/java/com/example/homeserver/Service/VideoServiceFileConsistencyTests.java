@@ -364,6 +364,25 @@ class VideoServiceFileConsistencyTests {
 		verify(videoRepository, never()).delete(video);
 	}
 
+	@Test
+	void streamingRejectsDatabasePathOutsideConfiguredStorage() throws Exception {
+		Path outside = Files.write(temporaryDirectory.resolve("outside.mp4"), new byte[] { 1 });
+		Video video = video(outside, thumbnailRoot.resolve("thumbnail.jpg"));
+		when(videoRepository.findById(1L)).thenReturn(Optional.of(video));
+
+		org.junit.jupiter.api.Assertions.assertNull(videoService.getVideoPath(1L));
+	}
+
+	@Test
+	void streamingReturnsReadableFileInsideConfiguredStorage() throws Exception {
+		Path inside = Files.write(videoRoot.resolve("inside.mp4"), new byte[] { 1 });
+		Video video = video(inside, thumbnailRoot.resolve("thumbnail.jpg"));
+		when(videoRepository.findById(1L)).thenReturn(Optional.of(video));
+
+		org.junit.jupiter.api.Assertions.assertEquals(inside.toRealPath(),
+				videoService.getVideoPath(1L).toRealPath());
+	}
+
 	private Video video(Path videoPath, Path thumbnailPath) {
 		Video video = new Video();
 		video.setId(1L);

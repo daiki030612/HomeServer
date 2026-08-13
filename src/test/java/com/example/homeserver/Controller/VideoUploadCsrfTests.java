@@ -25,6 +25,7 @@ import com.example.homeserver.Repository.TagRepository;
 import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
+import com.example.homeserver.Service.VideoStreamService;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
@@ -37,6 +38,9 @@ class VideoUploadCsrfTests {
 
     @MockBean
     private VideoService videoService;
+
+    @MockBean
+    private VideoStreamService videoStreamService;
 
     @MockBean
     private FolderService folderService;

@@ -110,6 +110,11 @@ public class VideoService {
 
 	// 動画再生用Resource取得
 	public Resource getVideo(Long id) {
+		Path path = getVideoPath(id);
+		return path == null ? null : new FileSystemResource(path);
+	}
+
+	public Path getVideoPath(Long id) {
 
 		Optional<Video> optionalVideo = videoRepository.findById(id);
 
@@ -119,13 +124,14 @@ public class VideoService {
 
 		Video video = optionalVideo.get();
 
+		Path storageRoot = storageRoot(videoStoragePath);
 		Path path;
 
 		// filePathが登録されている場合
 		if (video.getFilePath() != null &&
 				!video.getFilePath().isBlank()) {
 
-			path = Paths.get(video.getFilePath());
+			path = Paths.get(video.getFilePath()).toAbsolutePath().normalize();
 
 		} else {
 
@@ -135,15 +141,13 @@ public class VideoService {
 					video.getFileName());
 		}
 
-		Resource resource = new FileSystemResource(path);
-
-		if (resource.exists() &&
-				resource.isReadable()) {
-
-			return resource;
+		try {
+			ensureWithinStorage(path, storageRoot);
+			return Files.isRegularFile(path) && Files.isReadable(path) ? path : null;
+		} catch (IllegalArgumentException e) {
+			logger.warn("Rejected video path outside configured storage for video id={}", id);
+			return null;
 		}
-
-		return null;
 	}
 
 	// 動画アップロード

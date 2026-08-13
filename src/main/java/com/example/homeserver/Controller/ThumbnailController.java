@@ -2,6 +2,7 @@ package com.example.homeserver.Controller;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.Files;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
@@ -24,9 +25,19 @@ public class ThumbnailController {
 	public ResponseEntity<Resource> getThumbnail(
 			@PathVariable String fileName) {
 
-		Path path = Paths.get(
-				thumbnailPath,
-				fileName);
+		Path root = Paths.get(thumbnailPath).toAbsolutePath().normalize();
+		Path path = root.resolve(fileName).toAbsolutePath().normalize();
+		if (!path.startsWith(root)) {
+			return ResponseEntity.notFound().build();
+		}
+
+		try {
+			if (Files.exists(path) && !path.toRealPath().startsWith(root.toRealPath())) {
+				return ResponseEntity.notFound().build();
+			}
+		} catch (java.io.IOException e) {
+			return ResponseEntity.notFound().build();
+		}
 
 		Resource resource = new FileSystemResource(path);
 

@@ -1,16 +1,12 @@
 package com.example.homeserver.Controller;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.HttpRange;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.example.homeserver.Entity.Folder;
 import com.example.homeserver.Entity.Video;
@@ -27,6 +24,7 @@ import com.example.homeserver.Repository.TagRepository;
 import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
+import com.example.homeserver.Service.VideoStreamService;
 
 @Controller
 @RequestMapping("/videos")
@@ -34,6 +32,9 @@ public class VideoController {
 
 	@Autowired
 	private VideoService videoService;
+
+	@Autowired
+	private VideoStreamService videoStreamService;
 
 	@Autowired
 	private FolderService folderService;
@@ -222,33 +223,17 @@ public class VideoController {
 	// =========================
 
 	@GetMapping("/play/{id}")
-	public ResponseEntity<ResourceRegion> playVideo(
+	public ResponseEntity<StreamingResponseBody> playVideo(
 			@PathVariable Long id,
-			@RequestHeader HttpHeaders headers) throws IOException {
+			@RequestHeader(value = HttpHeaders.RANGE, required = false) String range)
+			throws IOException {
 
-		Resource resource = videoService.getVideo(id);
-		if (resource == null) {
+		Path video = videoService.getVideoPath(id);
+		if (video == null) {
 			return ResponseEntity.notFound().build();
 		}
 
-		long contentLength = resource.contentLength();
-		HttpRange range = headers.getRange().isEmpty() ? null : headers.getRange().get(0);
-
-		if (range != null) {
-			long start = range.getRangeStart(contentLength);
-			long end = range.getRangeEnd(contentLength);
-			long rangeLength = Math.min(1024 * 1024, end - start + 1); // 1MB単位で返却
-			ResourceRegion region = new ResourceRegion(resource, start, rangeLength);
-			return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-					.contentType(MediaType.parseMediaType("video/mp4"))
-					.body(region);
-		} else {
-			long rangeLength = Math.min(1024 * 1024, contentLength);
-			ResourceRegion region = new ResourceRegion(resource, 0, rangeLength);
-			return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-					.contentType(MediaType.parseMediaType("video/mp4"))
-					.body(region);
-		}
+		return videoStreamService.stream(video, range);
 	}
 
 	// =========================
