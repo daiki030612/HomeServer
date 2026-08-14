@@ -21,6 +21,7 @@
         </div>
 
         <form th:action="@{/login}" method="post">
+            <input type="hidden" name="continue" th:value="${continueUrl}">
             <div class="form-group">
                 <label for="username">ユーザー名</label>
                 <input type="text" id="username" name="username" required autofocus>

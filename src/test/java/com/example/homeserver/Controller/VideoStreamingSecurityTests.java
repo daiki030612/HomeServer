@@ -31,7 +31,7 @@ import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
 
-@WebMvcTest(VideoController.class)
+@WebMvcTest(value = VideoController.class, properties = "shared-auth.secret=test-only-shared-auth-secret-32-characters-minimum")
 @Import(SecurityConfig.class)
 class VideoStreamingSecurityTests {
 	@Autowired
@@ -93,6 +93,10 @@ class VideoStreamingSecurityTests {
 	void logoutPostWithCsrfReturnsToLogin() throws Exception {
 		mockMvc.perform(post("/logout").with(user("viewer")).with(csrf()))
 				.andExpect(status().is3xxRedirection())
-				.andExpect(header().string(HttpHeaders.LOCATION, "/login?logout"));
+				.andExpect(header().string(HttpHeaders.LOCATION, "/login?logout"))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.allOf(
+						org.hamcrest.Matchers.containsString("MEDIA_AUTH="),
+						org.hamcrest.Matchers.containsString("Max-Age=0"),
+						org.hamcrest.Matchers.containsString("Path=/"))));
 	}
 }

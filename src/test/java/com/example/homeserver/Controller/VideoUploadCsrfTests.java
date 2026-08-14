@@ -34,7 +34,7 @@ import com.example.homeserver.Service.VideoStreamService;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
-@WebMvcTest(VideoController.class)
+@WebMvcTest(value = VideoController.class, properties = "shared-auth.secret=test-only-shared-auth-secret-32-characters-minimum")
 @Import(SecurityConfig.class)
 class VideoUploadCsrfTests {
 
