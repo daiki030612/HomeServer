@@ -8,7 +8,6 @@
 	padding: 0 30px;
 }
 
-
 .upload-card {
 	background: white;
 	border-radius: 32px;
@@ -237,3 +236,17 @@
 	.upload-page { padding: 36px 16px 60px; }
 	.file-area { padding: 30px 16px; }
 }
+
+/* Match the ImageGallery panels and controls. */
+.upload-page { color: #f4f5f7; }
+.upload-card {
+	background: #171a22;
+	border: 1px solid #282c38;
+	border-radius: 18px;
+	box-shadow: none;
+}
+.upload-description, #file-name, #progress-size { color: #9ca3b2; }
+.select-video-button, .upload-button { border-radius: 10px; background: linear-gradient(135deg, #8b5cf6, #6d3ce8); }
+.file-area { border-color: #353a48; background: #0f1117; }
+.progress-bar-background { background: #292d38; }
+.progress-bar { background: linear-gradient(90deg, #8b5cf6, #22c55e); }

@@ -4,10 +4,14 @@
 <!-- Header Fragment -->
 <header th:fragment="header" class="header">
 	<div class="header-inner">
-		<a href="/videos" class="logo" aria-label="Home Server ホーム">
-			<span class="logo-mark">H</span>
-			<span>Home Server</span>
+		<a th:href="@{/videos}" class="logo" aria-label="Video Server ホーム">
+			<span>VideoServer</span>
 		</a>
+		<div class="app-switcher" aria-label="アプリ切り替え">
+			<a class="app-switch-link active" th:href="@{/videos}" aria-current="page">Video</a>
+			<a class="app-switch-link" data-app-target="image"
+				th:attr="data-url=${imageAppUrl},data-port=${imageAppPort},data-path=${imageAppPath}">Image</a>
+		</div>
 
 		<nav class="nav">
 
@@ -60,6 +64,7 @@
 		</nav>
 
 
+		<script defer th:src="@{/js/app-navigation.js}"></script>
 		<script>
 
 			function toggleMobileMenu() {
