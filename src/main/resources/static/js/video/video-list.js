@@ -647,7 +647,7 @@ function toggleFolderMenu(event, button) {
 
 
     document
-        .querySelectorAll(".menu-dropdown")
+        .querySelectorAll(".menu-dropdown, .folder-menu-dropdown")
         .forEach(function(otherMenu) {
 
             if (otherMenu !== menu) {
@@ -660,6 +660,10 @@ function toggleFolderMenu(event, button) {
 
 
     menu.classList.toggle("show");
+    button.setAttribute(
+        "aria-expanded",
+        menu.classList.contains("show") ? "true" : "false"
+    );
 
 }
 
@@ -826,10 +830,40 @@ document.addEventListener(
 
                 });
 
+            document
+                .querySelectorAll(".folder-menu-button")
+                .forEach(function(button) {
+
+                    button.setAttribute("aria-expanded", "false");
+
+                });
+
         }
 
     }
 );
+
+// モーダルの背景タップとEscapeキーで、安全に操作をキャンセルする。
+document.querySelectorAll(".modal").forEach(function(modal) {
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) {
+            modal.classList.remove("show");
+        }
+    });
+});
+
+document.addEventListener("keydown", function(event) {
+    if (event.key !== "Escape") return;
+
+    document.querySelectorAll(".modal.show").forEach(function(modal) {
+        modal.classList.remove("show");
+    });
+
+    document.querySelectorAll(".menu-dropdown.show, .folder-menu-dropdown.show")
+        .forEach(function(menu) {
+            menu.classList.remove("show");
+        });
+});
 
 // =========================
 // 動画ドラッグ＆ドロップ

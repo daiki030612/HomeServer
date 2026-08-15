@@ -16,7 +16,7 @@
 		<nav class="nav">
 
 			<!-- スマホ用ハンバーガーボタン -->
-			<button type="button" class="hamburger-button" onclick="toggleMobileMenu()"
+			<button type="button" class="hamburger-button" onclick="toggleMobileMenu(event)"
 				aria-label="メニューを開く" aria-expanded="false">
 				<span></span><span></span>
 			</button>
@@ -67,7 +67,8 @@
 		<script defer th:src="@{/js/app-navigation.js}"></script>
 		<script>
 
-			function toggleMobileMenu() {
+			function toggleMobileMenu(event) {
+				if (event) event.stopPropagation();
 
 				const menu =
 					document.querySelector(".mobile-menu");
@@ -77,6 +78,13 @@
 					.setAttribute("aria-expanded", menu.classList.contains("show"));
 
 			}
+
+			document.addEventListener("click", function (event) {
+				const menu = document.querySelector(".mobile-menu");
+				if (!menu || !menu.classList.contains("show") || event.target.closest(".nav")) return;
+				menu.classList.remove("show");
+				document.querySelector(".hamburger-button")?.setAttribute("aria-expanded", "false");
+			});
 
 		</script>
 </header>

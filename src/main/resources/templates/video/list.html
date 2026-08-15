@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<title>Home Server</title>
 	<link rel="stylesheet" th:href="@{/css/style.css}">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 	<!-- CSRF Token -->
 	<meta name="_csrf" th:content="${_csrf.token}"/>
 	<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
@@ -121,8 +121,6 @@
 		<div class="folder-grid">
 
 			<div class="folder-card" th:each="folder : ${folders}" th:data-id="${folder.id}"
-				oncontextmenu="openFolderMenu(event, this)" ontouchstart="startFolderLongPress(event, this)"
-				ontouchend="cancelFolderLongPress()" ontouchmove="cancelFolderLongPress()"
 				ondragover="allowVideoDrop(event, this)" ondragenter="enterVideoDrop(event, this)"
 				ondragleave="leaveVideoDrop(event, this)" ondrop="dropVideo(event, this)">
 
@@ -133,13 +131,16 @@
 					<div class="folder-name" th:text="${folder.name}">
 						フォルダ名
 					</div>
+					<div class="folder-meta">フォルダ</div>
 
 				</a>
+				<button type="button" class="folder-menu-button" onclick="toggleFolderMenu(event, this)"
+					aria-label="フォルダ操作メニュー" aria-haspopup="menu" aria-expanded="false">⋯</button>
 
 
 				<!-- フォルダメニュー -->
 
-				<div class="folder-menu-dropdown">
+				<div class="folder-menu-dropdown" role="menu">
 
 					<a href="#" th:data-id="${folder.id}" th:data-name="${folder.name}"
 						onclick="openRenameFolderModal(event, this)">
@@ -151,7 +152,7 @@
 
 					<form th:action="@{/folders/delete/{id}(id=${folder.id})}" method="post"
 						onsubmit="return confirm('このフォルダーを削除しますか？');">
-						<button type="submit" class="menu-action-button">削除</button>
+						<button type="submit" class="menu-action-button danger-action">削除</button>
 					</form>
 
 				</div>
@@ -166,23 +167,29 @@
 
 			<div class="video-container">
 
-				<div class="video-card" th:each="video : ${videos}" draggable="true" th:data-id="${video.id}"
+				<article class="video-card" th:each="video : ${videos}" draggable="true" th:data-id="${video.id}"
 					ondragstart="dragVideo(event, this)" ondragend="dragVideoEnd(event, this)">
 
-					<!-- 動画サムネイル -->
-					<a class="thumbnail-link" th:href="@{/videos/view/{id}(id=${video.id})}">
+					<a class="video-card-link" th:href="@{/videos/view/{id}(id=${video.id})}">
+						<div class="thumbnail-link">
 
-						<img class="thumbnail" th:src="@{'/thumbnails/' + ${video.thumbnailName}}">
+						<img class="thumbnail" th:src="@{'/thumbnails/' + ${video.thumbnailName}}"
+							th:alt="${video.title}" loading="lazy">
 
 						<div class="play-overlay">
 							▶
 						</div>
 
-						<!-- PCのみ表示 -->
-						<div class="title-overlay" th:text="${video.title}">
-							動画タイトル
 						</div>
-
+						<div class="video-card-body">
+							<h2 class="video-card-title" th:text="${video.title}">動画タイトル</h2>
+							<div class="video-card-meta">
+								<time th:if="${video.createdAt != null}"
+									th:text="${#temporals.format(video.createdAt, 'yyyy/MM/dd')}">2026/01/01</time>
+								<span th:each="tag, stat : ${video.tags}" th:if="${stat.index < 2}"
+									th:text="'#' + ${tag.name}">#tag</span>
+							</div>
+						</div>
 					</a>
 
 
@@ -222,14 +229,14 @@
 							<!-- 動画削除 -->
 							<form th:action="@{/videos/delete/{id}(id=${video.id})}" method="post"
 								onsubmit="return confirm('この動画を削除しますか？');">
-								<button type="submit" class="menu-action-button">削除</button>
+								<button type="submit" class="menu-action-button danger-action">削除</button>
 							</form>
 
 						</div>
 
 					</div>
 
-				</div>
+				</article>
 
 			</div>
 

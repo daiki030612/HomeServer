@@ -250,3 +250,29 @@
 .file-area { border-color: #353a48; background: #0f1117; }
 .progress-bar-background { background: #292d38; }
 .progress-bar { background: linear-gradient(90deg, #8b5cf6, #22c55e); }
+
+/* iPhone upload ergonomics */
+.upload-page {
+	min-height: 100dvh;
+	padding-bottom: calc(48px + env(safe-area-inset-bottom));
+}
+
+.select-video-button,
+.upload-button,
+.file-label {
+	min-height: 48px;
+}
+
+@media (max-width: 600px) {
+	.upload-container {
+		padding-inline: max(14px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-right));
+	}
+
+	.upload-card {
+		padding: 24px 18px;
+	}
+
+	.file-area {
+		min-height: 160px;
+	}
+}
