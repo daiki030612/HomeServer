@@ -13,6 +13,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,6 +22,7 @@ public class SafeUrlHttpClient {
 	private final UrlSafetyValidator validator;
 	private final HttpClient client;
 
+	@Autowired
 	public SafeUrlHttpClient(UrlSafetyValidator validator) {
 		this(validator, HttpClient.newBuilder()
 				.connectTimeout(Duration.ofSeconds(15))
