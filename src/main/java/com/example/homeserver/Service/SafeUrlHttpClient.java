@@ -56,6 +56,9 @@ public class SafeUrlHttpClient {
 		try {
 			Response response = execute(uri, maxBytes, destination);
 			return new DownloadResponse(response.finalUri(), response.contentType(), Files.size(destination));
+		} catch (ResponseSizeLimitException e) {
+			throw new VideoUrlImportException(VideoUrlImportException.Reason.SIZE_LIMIT_EXCEEDED,
+					"動画が保存可能な容量制限を超えています。", e);
 		} catch (IOException e) {
 			throw new VideoUrlImportException(VideoUrlImportException.Reason.MEDIA_DOWNLOAD_FAILED,
 					"動画データを取得できませんでした。", e);
@@ -95,7 +98,7 @@ public class SafeUrlHttpClient {
 			long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1);
 			if (declaredLength > maxBytes) {
 				response.body().close();
-				throw new IOException("Response exceeds configured size limit");
+				throw new ResponseSizeLimitException();
 			}
 			Path target = destination == null ? Files.createTempFile("video-url-text-", ".tmp") : destination;
 			copyLimited(response.body(), target, maxBytes);
@@ -113,7 +116,7 @@ public class SafeUrlHttpClient {
 			int read;
 			while ((read = input.read(buffer)) != -1) {
 				total += read;
-				if (total > maxBytes) throw new IOException("Response exceeds configured size limit");
+				if (total > maxBytes) throw new ResponseSizeLimitException();
 				output.write(buffer, 0, read);
 			}
 		} catch (IOException e) {
@@ -123,6 +126,9 @@ public class SafeUrlHttpClient {
 	}
 
 	private record Response(URI finalUri, Path file, String contentType) {}
+	private static class ResponseSizeLimitException extends IOException {
+		private static final long serialVersionUID = 1L;
+	}
 	public record TextResponse(URI finalUri, String body, String contentType) {}
 	public record DownloadResponse(URI finalUri, String contentType, long bytes) {}
 }

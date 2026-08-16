@@ -7,6 +7,7 @@ public class VideoUrlImportException extends RuntimeException {
 		PAGE_FETCH_FAILED,
 		SOURCE_NOT_FOUND,
 		MEDIA_DOWNLOAD_FAILED,
+		SIZE_LIMIT_EXCEEDED,
 		HLS_DOWNLOAD_FAILED,
 		FFMPEG_FAILED,
 		SAVE_FAILED,

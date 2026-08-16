@@ -185,6 +185,6 @@ class VideoUploadCsrfTests {
                         .with(user("uploader"))
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("公開HTTP(S) URLを入力してください。"));
+                .andExpect(content().string("有効な公開HTTP(S) URLを入力してください。"));
     }
 }
