@@ -20,6 +20,7 @@ class MissAvVideoSourceExtractorTests {
 			"https://surrit.com/70bbdfc6-de49-40ff-a3fe-79cdbf79618d/playlist.m3u8");
 	private static final URI DIRECT = URI.create(
 			"https://surrit.com/70bbdfc6-de49-40ff-a3fe-79cdbf79618d/720p/video.m3u8");
+	private static final String USER_AGENT = "Test Browser/1.0";
 	private static final String PACKED = "eval(function(p,a,c,k,e,d){return p;}('"
 			+ "e=\\'8://7.6/5-4-3-2-1/d.0\\';c=\\'8://7.6/5-4-3-2-1/a/9.0\\';"
 			+ "b=\\'8://7.6/5-4-3-2-1/a/9.0\\';',15,15,"
@@ -53,6 +54,8 @@ class MissAvVideoSourceExtractorTests {
 		assertEquals(MASTER, result.mediaUri());
 		assertEquals(VideoSourceExtractor.MediaKind.HLS, result.kind());
 		assertEquals("IPZZ-640 & Sample", result.title());
+		assertEquals(PAGE, result.requestContext().referer());
+		assertEquals(USER_AGENT, result.requestContext().userAgent());
 		verify(validator).validate(MASTER);
 		verify(validator, never()).validate(DIRECT);
 	}
@@ -106,6 +109,6 @@ class MissAvVideoSourceExtractorTests {
 	}
 
 	private MissAvVideoSourceExtractor extractor(SafeUrlHttpClient http, UrlSafetyValidator validator) {
-		return new MissAvVideoSourceExtractor(http, validator, 2048);
+		return new MissAvVideoSourceExtractor(http, validator, 2048, USER_AGENT);
 	}
 }

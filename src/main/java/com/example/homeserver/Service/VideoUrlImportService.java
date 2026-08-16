@@ -39,10 +39,11 @@ public class VideoUrlImportService {
 			workDirectory = Files.createTempDirectory("homeserver-url-import-");
 			Path downloaded;
 			if (source.kind() == VideoSourceExtractor.MediaKind.HLS) {
-				downloaded = hls.downloadAsMp4(source.mediaUri(), workDirectory);
+				downloaded = hls.downloadAsMp4(source.mediaUri(), workDirectory, source.requestContext());
 			} else {
 				downloaded = workDirectory.resolve("downloaded.mp4");
-				http.download(source.mediaUri(), downloaded, maxBytes);
+				http.download(source.mediaUri(), downloaded, maxBytes, source.requestContext(),
+						SafeUrlHttpClient.ImportStage.MEDIA);
 			}
 			try {
 				videos.importDownloadedVideo(downloaded, source.title(), folderId);

@@ -37,9 +37,14 @@ public class HlsDownloadService {
 	}
 
 	public Path downloadAsMp4(URI playlistUri, Path workDirectory) {
+		return downloadAsMp4(playlistUri, workDirectory, VideoSourceRequestContext.EMPTY);
+	}
+
+	public Path downloadAsMp4(URI playlistUri, Path workDirectory, VideoSourceRequestContext requestContext) {
 		try {
 			long downloadDeadline = System.nanoTime() + ffmpegTimeout.toNanos();
-			Path mediaPlaylist = localizePlaylist(playlistUri, workDirectory, 0, downloadDeadline);
+			Path mediaPlaylist = localizePlaylist(playlistUri, workDirectory, 0, downloadDeadline,
+					requestContext == null ? VideoSourceRequestContext.EMPTY : requestContext);
 			Path output = workDirectory.resolve("downloaded.mp4");
 			List<String> command = List.of(
 					"ffmpeg", "-nostdin", "-hide_banner", "-y",
@@ -67,15 +72,19 @@ public class HlsDownloadService {
 		}
 	}
 
-	private Path localizePlaylist(URI playlistUri, Path directory, int depth, long deadlineNanos) throws IOException {
+	private Path localizePlaylist(URI playlistUri, Path directory, int depth, long deadlineNanos,
+			VideoSourceRequestContext requestContext) throws IOException {
 		ensureWithinDeadline(deadlineNanos);
 		if (depth > MAX_PLAYLIST_DEPTH) throw new IOException("HLS playlist nesting is too deep");
-		SafeUrlHttpClient.TextResponse response = http.getText(playlistUri, Math.min(maxBytes, 2 * 1024 * 1024));
+		SafeUrlHttpClient.TextResponse response = http.getText(playlistUri,
+				Math.min(maxBytes, 2 * 1024 * 1024), requestContext,
+				SafeUrlHttpClient.ImportStage.HLS_PLAYLIST);
 		List<String> lines = response.body().lines().toList();
 		for (int i = 0; i < lines.size(); i++) {
 			if (lines.get(i).startsWith("#EXT-X-STREAM-INF")) {
 				String child = nextUriLine(lines, i + 1);
-				return localizePlaylist(response.finalUri().resolve(child), directory, depth + 1, deadlineNanos);
+				return localizePlaylist(response.finalUri().resolve(child), directory, depth + 1,
+						deadlineNanos, requestContext);
 			}
 			if (lines.get(i).startsWith("#EXT-X-BYTERANGE")) {
 				throw new VideoUrlImportException(VideoUrlImportException.Reason.UNSUPPORTED_SOURCE,
@@ -95,7 +104,7 @@ public class HlsDownloadService {
 			}
 			if (!line.startsWith("#")) {
 				Resource resource = downloadResource(response.finalUri().resolve(line.trim()), directory,
-						localNames, resourceCount++, remaining);
+						localNames, resourceCount++, remaining, requestContext);
 				remaining -= resource.bytes();
 				localized.add(resource.localName());
 				continue;
@@ -103,7 +112,7 @@ public class HlsDownloadService {
 			Matcher matcher = ATTRIBUTE_URI.matcher(line);
 			if (matcher.find()) {
 				Resource resource = downloadResource(response.finalUri().resolve(matcher.group(1)), directory,
-						localNames, resourceCount++, remaining);
+						localNames, resourceCount++, remaining, requestContext);
 				remaining -= resource.bytes();
 				line = matcher.replaceFirst(Matcher.quoteReplacement("URI=\"" + resource.localName() + "\""));
 			}
@@ -119,7 +128,7 @@ public class HlsDownloadService {
 	}
 
 	private Resource downloadResource(URI uri, Path directory, Map<URI, String> localNames,
-			int index, long remaining) throws IOException {
+			int index, long remaining, VideoSourceRequestContext requestContext) throws IOException {
 		if (index >= MAX_RESOURCES || remaining <= 0) throw new IOException("HLS resource limit exceeded");
 		URI normalized = uri.normalize();
 		String existing = localNames.get(normalized);
@@ -127,7 +136,8 @@ public class HlsDownloadService {
 		String extension = safeExtension(normalized.getPath());
 		String localName = String.format("resource-%05d%s", index, extension);
 		Path target = directory.resolve(localName);
-		SafeUrlHttpClient.DownloadResponse downloaded = http.download(normalized, target, remaining);
+		SafeUrlHttpClient.DownloadResponse downloaded = http.download(normalized, target, remaining,
+				requestContext, SafeUrlHttpClient.ImportStage.HLS_RESOURCE);
 		localNames.put(downloaded.finalUri().normalize(), localName);
 		return new Resource(localName, downloaded.bytes());
 	}

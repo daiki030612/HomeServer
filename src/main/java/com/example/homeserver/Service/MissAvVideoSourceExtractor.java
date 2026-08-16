@@ -31,12 +31,15 @@ public class MissAvVideoSourceExtractor implements VideoSourceExtractor {
 	private final SafeUrlHttpClient http;
 	private final UrlSafetyValidator validator;
 	private final long maxPageBytes;
+	private final String userAgent;
 
 	public MissAvVideoSourceExtractor(SafeUrlHttpClient http, UrlSafetyValidator validator,
-			@Value("${video.url-import.max-page-bytes:2097152}") long maxPageBytes) {
+			@Value("${video.url-import.max-page-bytes:2097152}") long maxPageBytes,
+			@Value("${video.url-import.user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36}") String userAgent) {
 		this.http = http;
 		this.validator = validator;
 		this.maxPageBytes = maxPageBytes;
+		this.userAgent = userAgent;
 	}
 
 	@Override
@@ -57,7 +60,8 @@ public class MissAvVideoSourceExtractor implements VideoSourceExtractor {
 		String title = firstMatch(OG_TITLE, page.body());
 		if (title == null || title.isBlank()) title = firstMatch(TITLE, page.body());
 		if (title == null || title.isBlank()) title = "URL import - " + page.finalUri().getHost();
-		return new ExtractedVideoSource(decodeHtml(title).trim(), mediaUri, MediaKind.HLS);
+		return new ExtractedVideoSource(decodeHtml(title).trim(), mediaUri, MediaKind.HLS,
+				new VideoSourceRequestContext(userAgent, pageUri));
 	}
 
 	Sources parseSources(String html) {
