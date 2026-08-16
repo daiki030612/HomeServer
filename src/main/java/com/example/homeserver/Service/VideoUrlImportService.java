@@ -32,13 +32,7 @@ public class VideoUrlImportService {
 
 	public void importVideo(String rawUrl, Long folderId) {
 		URI pageUri = validator.validate(rawUrl);
-		VideoSourceExtractor extractor = extractors.stream()
-				.filter(candidate -> candidate.supports(pageUri))
-				.findFirst()
-				.orElseThrow(() -> new VideoUrlImportException(
-						VideoUrlImportException.Reason.UNSUPPORTED_SOURCE,
-						"この動画ページには対応していません。"));
-		VideoSourceExtractor.ExtractedVideoSource source = extractor.extract(pageUri);
+		VideoSourceExtractor.ExtractedVideoSource source = extractSource(pageUri);
 
 		Path workDirectory = null;
 		try {
@@ -73,6 +67,28 @@ public class VideoUrlImportService {
 		} finally {
 			deleteRecursively(workDirectory);
 		}
+	}
+
+	private VideoSourceExtractor.ExtractedVideoSource extractSource(URI pageUri) {
+		VideoUrlImportException sourceNotFound = null;
+		boolean supported = false;
+		for (VideoSourceExtractor extractor : extractors) {
+			if (!extractor.supports(pageUri)) continue;
+			supported = true;
+			try {
+				return extractor.extract(pageUri);
+			} catch (VideoUrlImportException e) {
+				if (e.getReason() != VideoUrlImportException.Reason.SOURCE_NOT_FOUND) throw e;
+				sourceNotFound = e;
+			}
+		}
+		if (sourceNotFound != null) throw sourceNotFound;
+		if (!supported) {
+			throw new VideoUrlImportException(VideoUrlImportException.Reason.UNSUPPORTED_SOURCE,
+					"この動画ページには対応していません。");
+		}
+		throw new VideoUrlImportException(VideoUrlImportException.Reason.SOURCE_NOT_FOUND,
+				"このページから動画URLを取得できませんでした。");
 	}
 
 	private boolean hasDatabaseCause(Throwable error) {

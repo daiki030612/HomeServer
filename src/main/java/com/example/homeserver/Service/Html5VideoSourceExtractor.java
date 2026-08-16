@@ -9,9 +9,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class Html5VideoSourceExtractor implements VideoSourceExtractor {
 	private static final Pattern TITLE = Pattern.compile("(?is)<title[^>]*>(.*?)</title>");
 	private static final Pattern VIDEO_SRC = Pattern.compile(
