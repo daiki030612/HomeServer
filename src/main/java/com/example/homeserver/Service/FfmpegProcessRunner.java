@@ -51,15 +51,21 @@ public class FfmpegProcessRunner {
 				byte[] buffer = new byte[4096];
 				byte[] retained = new byte[MAX_ERROR_BYTES];
 				int retainedLength = 0;
+				int writePosition = 0;
 				int read;
 				while ((read = stream.read(buffer)) != -1) {
-					int copy = Math.min(read, MAX_ERROR_BYTES - retainedLength);
-					if (copy > 0) {
-						System.arraycopy(buffer, 0, retained, retainedLength, copy);
-						retainedLength += copy;
+					for (int i = 0; i < read; i++) {
+						retained[writePosition] = buffer[i];
+						writePosition = (writePosition + 1) % MAX_ERROR_BYTES;
+						if (retainedLength < MAX_ERROR_BYTES) retainedLength++;
 					}
 				}
-				return new String(retained, 0, retainedLength, StandardCharsets.UTF_8);
+				byte[] ordered = new byte[retainedLength];
+				int start = retainedLength == MAX_ERROR_BYTES ? writePosition : 0;
+				for (int i = 0; i < retainedLength; i++) {
+					ordered[i] = retained[(start + i) % MAX_ERROR_BYTES];
+				}
+				return new String(ordered, StandardCharsets.UTF_8);
 			} catch (IOException e) {
 				throw new IllegalStateException(e);
 			}

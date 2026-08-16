@@ -3,6 +3,7 @@ package com.example.homeserver.Service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -20,6 +21,9 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -89,6 +93,45 @@ class SafeUrlHttpClientRequestContextTests {
 		assertThrows(IllegalArgumentException.class,
 				() -> new SafeUrlHttpClient(mock(UrlSafetyValidator.class), mock(HttpClient.class),
 						"Browser/1.0\nX-Injected: yes"));
+	}
+
+	@Test
+	void sharedBudgetPreventsParallelAggregateLimitOverrun() throws Exception {
+		UrlSafetyValidator validator = mock(UrlSafetyValidator.class);
+		HttpClient client = mock(HttpClient.class);
+		URI first = URI.create("https://media.example/first.ts");
+		URI second = URI.create("https://media.example/second.ts");
+		when(validator.validate(any(URI.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(client.send(any(HttpRequest.class), anyInputStreamHandler())).thenAnswer(invocation ->
+				response(200, Map.of("Content-Type", List.of("video/mp2t")), "123456"));
+		SafeUrlHttpClient safe = new SafeUrlHttpClient(validator, client, "Test Agent/1.0");
+		SafeUrlHttpClient.SharedDownloadBudget budget = new SafeUrlHttpClient.SharedDownloadBudget(10);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<Boolean> one = executor.submit(() -> downloadWithinBudget(safe, first,
+					directory.resolve("first.ts"), budget));
+			Future<Boolean> two = executor.submit(() -> downloadWithinBudget(safe, second,
+					directory.resolve("second.ts"), budget));
+
+			assertTrue(one.get() ^ two.get());
+			assertEquals(6, budget.consumedBytes());
+			assertTrue(budget.consumedBytes() <= budget.limitBytes());
+		} finally {
+			executor.shutdownNow();
+		}
+		verify(validator).validate(first);
+		verify(validator).validate(second);
+	}
+
+	private boolean downloadWithinBudget(SafeUrlHttpClient safe, URI uri, Path target,
+			SafeUrlHttpClient.SharedDownloadBudget budget) {
+		try {
+			safe.download(uri, target, 100, VideoSourceRequestContext.EMPTY,
+					SafeUrlHttpClient.ImportStage.HLS_RESOURCE, budget);
+			return true;
+		} catch (VideoUrlImportException expected) {
+			return false;
+		}
 	}
 
 	@SuppressWarnings("unchecked")

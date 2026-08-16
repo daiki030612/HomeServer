@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,8 +75,13 @@ public class SafeUrlHttpClient {
 
 	public DownloadResponse download(URI uri, Path destination, long maxBytes,
 			VideoSourceRequestContext context, ImportStage stage) {
+		return download(uri, destination, maxBytes, context, stage, null);
+	}
+
+	public DownloadResponse download(URI uri, Path destination, long maxBytes,
+			VideoSourceRequestContext context, ImportStage stage, SharedDownloadBudget sharedBudget) {
 		try {
-			Response response = execute(uri, maxBytes, destination, context, stage);
+			Response response = execute(uri, maxBytes, destination, context, stage, sharedBudget);
 			return new DownloadResponse(response.finalUri(), response.contentType(), Files.size(destination));
 		} catch (ResponseSizeLimitException e) {
 			throw new VideoUrlImportException(VideoUrlImportException.Reason.SIZE_LIMIT_EXCEEDED,
@@ -88,6 +94,12 @@ public class SafeUrlHttpClient {
 
 	private Response execute(URI initialUri, long maxBytes, Path destination,
 			VideoSourceRequestContext context, ImportStage stage) throws IOException {
+		return execute(initialUri, maxBytes, destination, context, stage, null);
+	}
+
+	private Response execute(URI initialUri, long maxBytes, Path destination,
+			VideoSourceRequestContext context, ImportStage stage,
+			SharedDownloadBudget sharedBudget) throws IOException {
 		VideoSourceRequestContext safeContext = context == null ? VideoSourceRequestContext.EMPTY : context;
 		ImportStage safeStage = stage == null ? ImportStage.MEDIA : stage;
 		URI current = initialUri;
@@ -134,7 +146,7 @@ public class SafeUrlHttpClient {
 				throw new ResponseSizeLimitException();
 			}
 			Path target = destination == null ? Files.createTempFile("video-url-text-", ".tmp") : destination;
-			copyLimited(response.body(), target, maxBytes);
+			copyLimited(response.body(), target, maxBytes, sharedBudget);
 			return new Response(current, target,
 					response.headers().firstValue("Content-Type").orElse(""));
 		}
@@ -151,6 +163,11 @@ public class SafeUrlHttpClient {
 	}
 
 	private void copyLimited(InputStream input, Path destination, long maxBytes) throws IOException {
+		copyLimited(input, destination, maxBytes, null);
+	}
+
+	private void copyLimited(InputStream input, Path destination, long maxBytes,
+			SharedDownloadBudget sharedBudget) throws IOException {
 		long total = 0;
 		byte[] buffer = new byte[64 * 1024];
 		try (input; var output = Files.newOutputStream(destination,
@@ -159,6 +176,7 @@ public class SafeUrlHttpClient {
 			while ((read = input.read(buffer)) != -1) {
 				total += read;
 				if (total > maxBytes) throw new ResponseSizeLimitException();
+				if (sharedBudget != null) sharedBudget.claim(read);
 				output.write(buffer, 0, read);
 			}
 		} catch (IOException e) {
@@ -173,6 +191,27 @@ public class SafeUrlHttpClient {
 	}
 	public record TextResponse(URI finalUri, String body, String contentType) {}
 	public record DownloadResponse(URI finalUri, String contentType, long bytes) {}
+
+	public static final class SharedDownloadBudget {
+		private final long limit;
+		private final AtomicLong consumed = new AtomicLong();
+
+		public SharedDownloadBudget(long limit) {
+			if (limit <= 0) throw new IllegalArgumentException("Download limit must be positive");
+			this.limit = limit;
+		}
+
+		private void claim(long bytes) throws ResponseSizeLimitException {
+			while (true) {
+				long current = consumed.get();
+				if (bytes > limit - current) throw new ResponseSizeLimitException();
+				if (consumed.compareAndSet(current, current + bytes)) return;
+			}
+		}
+
+		public long consumedBytes() { return consumed.get(); }
+		public long limitBytes() { return limit; }
+	}
 
 	public enum ImportStage {
 		PAGE("text/html,application/xhtml+xml;q=0.9,*/*;q=0.5"),
