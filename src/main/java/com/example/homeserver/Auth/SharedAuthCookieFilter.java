@@ -36,7 +36,7 @@ public class SharedAuthCookieFilter extends OncePerRequestFilter {
 
         boolean authenticationPresentBefore = SecurityContextHolder.getContext().getAuthentication() != null;
         Optional<String> cookie = cookies.read(request);
-        logger.info("[AUTH_COOKIE] request method={} uri={} cookieReceived={} authenticationBefore={}",
+        logger.debug("[AUTH_COOKIE] request method={} uri={} cookieReceived={} authenticationBefore={}",
                 request.getMethod(), request.getRequestURI(), yesNo(cookie.isPresent()),
                 presentAbsent(authenticationPresentBefore));
 
@@ -53,22 +53,22 @@ public class SharedAuthCookieFilter extends OncePerRequestFilter {
                 authenticationRestored = true;
             }
         } else if (cookie.isEmpty()) {
-            logger.info("[AUTH_COOKIE] tokenParse=not-attempted reason=cookie-missing authenticationRestored=no");
+            logger.debug("[AUTH_COOKIE] tokenParse=not-attempted reason=cookie-missing authenticationRestored=no");
         }
 
-        logger.info("[AUTH_COOKIE] authenticationRestored={} securityContextBeforeChain={}",
+        logger.debug("[AUTH_COOKIE] authenticationRestored={} securityContextBeforeChain={}",
                 yesNo(authenticationRestored),
                 presentAbsent(SecurityContextHolder.getContext().getAuthentication() != null));
 
         chain.doFilter(request, response);
 
-        logger.info("[AUTH_COOKIE] securityContextAfterChain={} responseStatus={} uri={}",
+        logger.debug("[AUTH_COOKIE] securityContextAfterChain={} responseStatus={} uri={}",
                 presentAbsent(SecurityContextHolder.getContext().getAuthentication() != null), response.getStatus(),
                 request.getRequestURI());
     }
 
     private void logVerification(SharedAuthTokenService.TokenVerification verification) {
-        logger.info(
+        logger.debug(
                 "[AUTH_COOKIE] tokenParse={} signatureValid={} tokenExpired={} expirationTime={} currentServerTime={} "
                         + "usernameExtracted={} authoritiesPresent={} userLookupPerformed=no authenticationRestoredCandidate={} "
                         + "result={}",
@@ -82,7 +82,7 @@ public class SharedAuthCookieFilter extends OncePerRequestFilter {
         if (!configurationLogged.compareAndSet(false, true)) {
             return;
         }
-        logger.info(
+        logger.debug(
                 "[AUTH_COOKIE] resolvedConfiguration cookieName={} tokenTtl={} cookieSecure={} secretConfigured={} "
                         + "secretLengthValid={} userLookupPerformed=no",
                 properties.getCookieName(), properties.getTokenTtl(), properties.isCookieSecure(),
