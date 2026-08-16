@@ -14,6 +14,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
@@ -81,11 +82,52 @@ class VideoUrlImportServiceTempDirectoryTests {
 		assertHlsFailureCleans(VideoUrlImportException.Reason.FFMPEG_FAILED);
 	}
 
+	@Test
+	void connectsHlsAndLibraryProgressStages() throws Exception {
+		Path configuredBase = temporaryDirectory.resolve("progress");
+		HlsDownloadService hls = mock(HlsDownloadService.class);
+		doAnswer(invocation -> {
+			Path workDirectory = invocation.getArgument(1, Path.class);
+			HlsDownloadService.ProgressListener listener = invocation.getArgument(3);
+			listener.onProgress(new HlsDownloadService.HlsProgress(10, 4, 2048));
+			listener.onProgress(new HlsDownloadService.HlsProgress(10, 10, 4096));
+			Path output = workDirectory.resolve("downloaded.mp4");
+			Files.write(output, new byte[] { 1 });
+			return output;
+		}).when(hls).downloadAsMp4(eq(MEDIA_URI), any(Path.class),
+				eq(VideoSourceRequestContext.EMPTY), any());
+		VideoService videos = mock(VideoService.class);
+		doAnswer(invocation -> {
+			VideoService.ImportProgressListener listener = invocation.getArgument(3);
+			listener.onThumbnailGenerating();
+			listener.onSaving();
+			return null;
+		}).when(videos).importDownloadedVideo(any(Path.class), eq("title"), eq(null), any());
+		VideoUrlImportService service = service(configuredBase, VideoSourceExtractor.MediaKind.HLS,
+				mock(SafeUrlHttpClient.class), hls, videos);
+		service.initializeTempBaseDirectory();
+		List<VideoUrlImportStage> stages = new CopyOnWriteArrayList<>();
+		List<HlsDownloadService.HlsProgress> snapshots = new CopyOnWriteArrayList<>();
+
+		service.importVideo(PAGE_URI.toString(), null, new VideoUrlImportProgressListener() {
+			@Override public void onStage(VideoUrlImportStage stage) { stages.add(stage); }
+			@Override public void onHlsProgress(HlsDownloadService.HlsProgress progress) {
+				snapshots.add(progress);
+			}
+		});
+
+		assertTrue(stages.containsAll(List.of(VideoUrlImportStage.URL_ANALYZING,
+				VideoUrlImportStage.VIDEO_INFO_FETCHING, VideoUrlImportStage.HLS_PLAYLIST_ANALYZING,
+				VideoUrlImportStage.DOWNLOADING, VideoUrlImportStage.MP4_CREATING,
+				VideoUrlImportStage.THUMBNAIL_GENERATING, VideoUrlImportStage.SAVING)));
+		assertTrue(snapshots.stream().anyMatch(progress -> progress.completedSegments() == 4));
+	}
+
 	private void assertHlsFailureCleans(VideoUrlImportException.Reason reason) {
 		Path configuredBase = temporaryDirectory.resolve(reason.name());
 		AtomicReference<Path> observedWorkDirectory = new AtomicReference<>();
 		HlsDownloadService hls = mock(HlsDownloadService.class);
-		when(hls.downloadAsMp4(eq(MEDIA_URI), any(Path.class), eq(VideoSourceRequestContext.EMPTY)))
+		when(hls.downloadAsMp4(eq(MEDIA_URI), any(Path.class), eq(VideoSourceRequestContext.EMPTY), any()))
 				.thenAnswer(invocation -> {
 					Path workDirectory = invocation.getArgument(1, Path.class);
 					observedWorkDirectory.set(workDirectory);
@@ -102,6 +144,11 @@ class VideoUrlImportServiceTempDirectoryTests {
 
 	private VideoUrlImportService service(Path configuredBase, VideoSourceExtractor.MediaKind kind,
 			SafeUrlHttpClient http, HlsDownloadService hls) {
+		return service(configuredBase, kind, http, hls, mock(VideoService.class));
+	}
+
+	private VideoUrlImportService service(Path configuredBase, VideoSourceExtractor.MediaKind kind,
+			SafeUrlHttpClient http, HlsDownloadService hls, VideoService videos) {
 		UrlSafetyValidator validator = mock(UrlSafetyValidator.class);
 		when(validator.validate(PAGE_URI.toString())).thenReturn(PAGE_URI);
 		VideoSourceExtractor extractor = mock(VideoSourceExtractor.class);
@@ -109,6 +156,6 @@ class VideoUrlImportServiceTempDirectoryTests {
 		when(extractor.extract(PAGE_URI)).thenReturn(
 				new VideoSourceExtractor.ExtractedVideoSource("title", MEDIA_URI, kind));
 		return new VideoUrlImportService(validator, List.of(extractor), http, hls,
-				mock(VideoService.class), 1024, configuredBase.toString());
+				videos, 1024, configuredBase.toString());
 	}
 }

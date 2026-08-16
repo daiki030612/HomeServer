@@ -14,6 +14,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,8 +36,8 @@ import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
-import com.example.homeserver.Service.VideoUrlImportException;
-import com.example.homeserver.Service.VideoUrlImportService;
+import com.example.homeserver.Service.VideoUrlImportJobService;
+import com.example.homeserver.Service.VideoUrlImportStage;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
@@ -59,7 +64,7 @@ class VideoUploadCsrfTests {
     private TagService tagService;
 
     @MockBean
-    private VideoUrlImportService videoUrlImportService;
+    private VideoUrlImportJobService videoUrlImportJobService;
 
     @Test
     void uploadWithCsrfHeaderSucceeds() throws Exception {
@@ -153,14 +158,18 @@ class VideoUploadCsrfTests {
 
     @Test
     void urlImportRequiresCsrfAndInvokesService() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        when(videoUrlImportJobService.start("https://example.com/video.mp4", null, "uploader"))
+                .thenReturn(jobId);
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .post("/videos/import-url")
                         .param("url", "https://example.com/video.mp4")
                         .with(user("uploader"))
                         .with(csrf()))
-                .andExpect(status().isOk());
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.jobId").value(jobId.toString()));
 
-        verify(videoUrlImportService).importVideo("https://example.com/video.mp4", null);
+        verify(videoUrlImportJobService).start("https://example.com/video.mp4", null, "uploader");
     }
 
     @Test
@@ -173,18 +182,31 @@ class VideoUploadCsrfTests {
     }
 
     @Test
-    void urlImportReturnsOnlySafeCategorizedMessage() throws Exception {
-        doThrow(new VideoUrlImportException(
-                VideoUrlImportException.Reason.INVALID_URL,
-                "公開HTTP(S) URLを入力してください。"))
-                .when(videoUrlImportService).importVideo(any(String.class), isNull());
+    void progressEndpointReturnsOnlyCurrentUsersJob() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        var progress = new VideoUrlImportJobService.JobProgress(jobId, VideoUrlImportStage.DOWNLOADING,
+                "動画をダウンロードしています", 4, 10, 40, 2048, Instant.now(), null, null);
+        when(videoUrlImportJobService.find(jobId, "uploader")).thenReturn(Optional.of(progress));
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .post("/videos/import-url")
-                        .param("url", "http://127.0.0.1/private")
-                        .with(user("uploader"))
-                        .with(csrf()))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("有効な公開HTTP(S) URLを入力してください。"));
+        mockMvc.perform(get("/videos/import-url/progress/{jobId}", jobId).with(user("uploader")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DOWNLOADING"))
+                .andExpect(jsonPath("$.completedSegments").value(4))
+                .andExpect(jsonPath("$.percentage").value(40));
+    }
+
+    @Test
+    void progressEndpointRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/videos/import-url/progress/{jobId}", UUID.randomUUID()))
+                .andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    void unknownOrOtherUsersJobReturnsNotFound() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        when(videoUrlImportJobService.find(jobId, "uploader")).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/videos/import-url/progress/{jobId}", jobId).with(user("uploader")))
+                .andExpect(status().isNotFound());
     }
 }

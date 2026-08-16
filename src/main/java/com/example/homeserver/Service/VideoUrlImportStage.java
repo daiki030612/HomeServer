@@ -1,0 +1,13 @@
+package com.example.homeserver.Service;
+
+public enum VideoUrlImportStage {
+	URL_ANALYZING,
+	VIDEO_INFO_FETCHING,
+	HLS_PLAYLIST_ANALYZING,
+	DOWNLOADING,
+	MP4_CREATING,
+	THUMBNAIL_GENERATING,
+	SAVING,
+	COMPLETED,
+	FAILED
+}

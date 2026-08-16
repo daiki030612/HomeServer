@@ -29,8 +29,30 @@
 }
 
 .url-import-status {
-	min-height: 1.5em;
-	margin-top: 14px;
+	margin: 0 0 12px;
+	font-weight: 700;
+}
+
+.url-import-progress {
+	margin-top: 20px;
+	padding: 18px;
+	border: 1px solid #353a48;
+	border-radius: 14px;
+	background: rgba(15, 17, 23, .55);
+	text-align: left;
+}
+
+.url-import-progress-summary {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 10px;
+}
+
+.url-import-detail {
+	margin: 6px 0 0;
+	font-size: 14px;
+	color: #86868b;
 }
 
 .upload-card {

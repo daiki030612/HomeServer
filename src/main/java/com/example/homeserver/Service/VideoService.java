@@ -145,6 +145,10 @@ public class VideoService {
 
 	// 動画アップロード
 	public void upload(MultipartFile file, Long folderId) {
+		upload(file, folderId, ImportProgressListener.NOOP);
+	}
+
+	private void upload(MultipartFile file, Long folderId, ImportProgressListener progressListener) {
 		Path savePath = null;
 		Path adoptedVideoPath = null;
 		Path thumbnailPath = null;
@@ -246,6 +250,7 @@ public class VideoService {
 			// サムネイル保存先
 			thumbnailPath = artifacts.track(resolveWithinStorage(thumbnailStorageRoot, thumbnailName));
 
+			progressListener.onThumbnailGenerating();
 			thumbnailService.createThumbnail(
 					adoptedVideoPath.toString(),
 					thumbnailPath.toString());
@@ -286,6 +291,7 @@ public class VideoService {
 
 			}
 
+			progressListener.onSaving();
 			videoRepository.saveAndFlush(video);
 			databaseSaved = true;
 			artifacts.cleanupAfterSuccess(adoptedVideoPath, thumbnailPath);
@@ -310,6 +316,11 @@ public class VideoService {
 	}
 
 	public void importDownloadedVideo(Path downloadedFile, String pageTitle, Long folderId) {
+		importDownloadedVideo(downloadedFile, pageTitle, folderId, ImportProgressListener.NOOP);
+	}
+
+	public void importDownloadedVideo(Path downloadedFile, String pageTitle, Long folderId,
+			ImportProgressListener progressListener) {
 		if (downloadedFile == null || !Files.isRegularFile(downloadedFile)) {
 			throw new IllegalArgumentException("Downloaded video file is missing");
 		}
@@ -318,7 +329,14 @@ public class VideoService {
 				.replaceAll("\\s+", " ").trim();
 		if (safeTitle.isBlank()) safeTitle = "URL import";
 		if (safeTitle.length() > 180) safeTitle = safeTitle.substring(0, 180).trim();
-		upload(new PathMultipartFile(downloadedFile, safeTitle + ".mp4"), folderId);
+		upload(new PathMultipartFile(downloadedFile, safeTitle + ".mp4"), folderId,
+				progressListener == null ? ImportProgressListener.NOOP : progressListener);
+	}
+
+	public interface ImportProgressListener {
+		ImportProgressListener NOOP = new ImportProgressListener() { };
+		default void onThumbnailGenerating() { }
+		default void onSaving() { }
 	}
 
 	private static final class PathMultipartFile implements MultipartFile {

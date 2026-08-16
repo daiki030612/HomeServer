@@ -48,7 +48,7 @@ class VideoStreamingSecurityTests {
 	@MockBean FolderService folderService;
 	@MockBean TagRepository tagRepository;
 	@MockBean TagService tagService;
-	@MockBean com.example.homeserver.Service.VideoUrlImportService videoUrlImportService;
+	@MockBean com.example.homeserver.Service.VideoUrlImportJobService videoUrlImportJobService;
 
 	@Test
 	void unauthenticatedVideoRequestRedirectsToLogin() throws Exception {

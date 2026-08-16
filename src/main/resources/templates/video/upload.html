@@ -105,7 +105,18 @@
 				       placeholder="https://example.com/video-page">
 				<button id="url-import-button" type="submit" class="upload-button">URLから保存</button>
 			</form>
-			<div id="url-import-status" class="url-import-status" role="status" aria-live="polite"></div>
+			<div id="url-import-progress" class="url-import-progress" role="status" aria-live="polite" hidden>
+				<p id="url-import-status" class="url-import-status">URLを解析しています</p>
+				<div class="progress-bar-background" aria-hidden="true">
+					<div id="url-import-progress-bar" class="progress-bar"></div>
+				</div>
+				<div class="url-import-progress-summary">
+					<strong id="url-import-percentage">0%</strong>
+					<span id="url-import-segments">セグメント情報を取得中</span>
+				</div>
+				<p id="url-import-bytes" class="url-import-detail">0 B ダウンロード済み</p>
+				<p id="url-import-elapsed" class="url-import-detail"></p>
+			</div>
 		</section>
 
 	</main>

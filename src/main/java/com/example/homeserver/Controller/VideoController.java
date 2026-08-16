@@ -2,12 +2,15 @@ package com.example.homeserver.Controller;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.security.Principal;
 import java.util.List;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -26,8 +29,7 @@ import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
-import com.example.homeserver.Service.VideoUrlImportException;
-import com.example.homeserver.Service.VideoUrlImportService;
+import com.example.homeserver.Service.VideoUrlImportJobService;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
@@ -49,7 +51,7 @@ public class VideoController {
 	private TagService tagService;
 
 	@Autowired
-	private VideoUrlImportService videoUrlImportService;
+	private VideoUrlImportJobService videoUrlImportJobService;
 
 	// =========================
 	// 動画一覧表示
@@ -313,34 +315,21 @@ public class VideoController {
 	@PostMapping("/import-url")
 	public ResponseEntity<?> importFromUrl(
 			@RequestParam("url") String url,
-			@RequestParam(value = "folderId", required = false) Long folderId) {
-		try {
-			videoUrlImportService.importVideo(url, folderId);
-			return ResponseEntity.ok().build();
-		} catch (VideoUrlImportException e) {
-			logger.warn("Video URL import failed: reason={}", e.getReason());
-			return ResponseEntity.badRequest().body(urlImportErrorMessage(e.getReason()));
-		} catch (Exception e) {
-			logger.error("Unexpected video URL import failure", e);
-			return ResponseEntity.internalServerError()
-					.body("動画を保存できませんでした。サーバー設定と空き容量を確認してください。");
-		}
+			@RequestParam(value = "folderId", required = false) Long folderId,
+			Principal principal) {
+		UUID jobId = videoUrlImportJobService.start(url, folderId, principal.getName());
+		return ResponseEntity.status(HttpStatus.ACCEPTED).body(new ImportJobStarted(jobId));
 	}
 
-	private String urlImportErrorMessage(VideoUrlImportException.Reason reason) {
-		return switch (reason) {
-		case INVALID_URL -> "有効な公開HTTP(S) URLを入力してください。";
-		case UNSUPPORTED_SOURCE -> "このURLには対応していません。";
-		case PAGE_FETCH_FAILED -> "動画ページを取得できませんでした。";
-		case SOURCE_NOT_FOUND -> "このページから動画URLを取得できませんでした。";
-		case HLS_DOWNLOAD_FAILED -> "HLS動画を取得できませんでした。";
-		case FFMPEG_FAILED -> "動画のMP4変換に失敗しました。";
-		case MEDIA_DOWNLOAD_FAILED -> "動画データを取得できませんでした。";
-		case SIZE_LIMIT_EXCEEDED -> "動画が容量制限を超えているため保存できませんでした。";
-		case SAVE_FAILED -> "動画を保存できませんでした。空き容量または容量制限を確認してください。";
-		case DATABASE_FAILED -> "動画を取得しましたが、ライブラリへ登録できませんでした。";
-		};
+	@GetMapping("/import-url/progress/{jobId}")
+	public ResponseEntity<VideoUrlImportJobService.JobProgress> importProgress(
+			@PathVariable UUID jobId, Principal principal) {
+		return videoUrlImportJobService.find(jobId, principal.getName())
+				.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
+
+	private record ImportJobStarted(UUID jobId) { }
 	// =========================
 	// 動画削除
 	// =========================

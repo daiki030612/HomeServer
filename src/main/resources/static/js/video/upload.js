@@ -311,9 +311,85 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const urlImportForm = document.getElementById("url-import-form");
     const urlImportButton = document.getElementById("url-import-button");
+    const urlImportProgress = document.getElementById("url-import-progress");
     const urlImportStatus = document.getElementById("url-import-status");
+    const urlImportProgressBar = document.getElementById("url-import-progress-bar");
+    const urlImportPercentage = document.getElementById("url-import-percentage");
+    const urlImportSegments = document.getElementById("url-import-segments");
+    const urlImportBytes = document.getElementById("url-import-bytes");
+    const urlImportElapsed = document.getElementById("url-import-elapsed");
 
     if (urlImportForm) {
+        const jobStorageKey = "video-url-import-job:" + urlImportForm.action;
+
+        function formatBytes(bytes) {
+            const value = Math.max(0, Number(bytes) || 0);
+            if (value >= 1024 ** 3) return (value / 1024 ** 3).toFixed(2) + " GB";
+            if (value >= 1024 ** 2) return (value / 1024 ** 2).toFixed(1) + " MB";
+            if (value >= 1024) return (value / 1024).toFixed(1) + " KB";
+            return value + " B";
+        }
+
+        function showProgress(progress) {
+            urlImportProgress.hidden = false;
+            const percentage = Math.max(0, Math.min(100, Number(progress.percentage) || 0));
+            urlImportStatus.textContent = progress.message || "処理状況を確認しています";
+            urlImportProgressBar.style.width = percentage + "%";
+            urlImportPercentage.textContent = percentage + "%";
+            urlImportSegments.textContent = progress.totalSegments > 0
+                ? progress.completedSegments + " / " + progress.totalSegments + " セグメント"
+                : "セグメント情報を取得中";
+            urlImportBytes.textContent = formatBytes(progress.downloadedBytes) + " ダウンロード済み";
+            if (progress.startedAt) {
+                const elapsed = Math.max(0, Math.floor((Date.now() - Date.parse(progress.startedAt)) / 1000));
+                urlImportElapsed.textContent = "経過時間 " + Math.floor(elapsed / 60) + "分 " + (elapsed % 60) + "秒";
+            }
+        }
+
+        async function pollJob(jobId) {
+            urlImportButton.disabled = true;
+            urlImportButton.textContent = "保存処理中...";
+            try {
+                const progressUrl = urlImportForm.action + "/progress/" + encodeURIComponent(jobId);
+                const response = await fetch(progressUrl, { headers: { "Accept": "application/json" } });
+                if (response.status === 404) {
+                    sessionStorage.removeItem(jobStorageKey);
+                    throw new Error("処理状況を確認できませんでした。もう一度実行してください。");
+                }
+                if (!response.ok) throw new Error("処理状況の取得に失敗しました。再試行しています。");
+                const progress = await response.json();
+                showProgress(progress);
+                if (progress.status === "COMPLETED") {
+                    sessionStorage.removeItem(jobStorageKey);
+                    urlImportProgressBar.style.width = "100%";
+                    urlImportPercentage.textContent = "100%";
+                    const selectedFolder = urlImportForm.elements.folderId.value;
+                    window.setTimeout(() => {
+                        window.location.href = selectedFolder
+                            ? urlImportForm.action.replace(/\/import-url$/, "/folder/" + encodeURIComponent(selectedFolder))
+                            : urlImportForm.action.replace(/\/import-url$/, "");
+                    }, 700);
+                    return;
+                }
+                if (progress.status === "FAILED") {
+                    sessionStorage.removeItem(jobStorageKey);
+                    urlImportButton.disabled = false;
+                    urlImportButton.textContent = "URLから保存";
+                    return;
+                }
+                window.setTimeout(() => pollJob(jobId), 1000);
+            } catch (error) {
+                urlImportProgress.hidden = false;
+                urlImportStatus.textContent = error.message;
+                if (sessionStorage.getItem(jobStorageKey)) {
+                    window.setTimeout(() => pollJob(jobId), 2000);
+                } else {
+                    urlImportButton.disabled = false;
+                    urlImportButton.textContent = "URLから保存";
+                }
+            }
+        }
+
         urlImportForm.addEventListener("submit", async function(event) {
             event.preventDefault();
             if (!csrfToken || !csrfHeader) {
@@ -323,7 +399,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
             urlImportButton.disabled = true;
             urlImportButton.textContent = "保存処理中...";
-            urlImportStatus.textContent = "ページ解析と動画保存を実行しています。この画面を閉じずにお待ちください。";
+			urlImportProgress.hidden = false;
+			urlImportStatus.textContent = "URLを解析しています";
+			urlImportProgressBar.style.width = "0%";
 
             try {
                 const response = await fetch(urlImportForm.action, {
@@ -338,17 +416,19 @@ document.addEventListener("DOMContentLoaded", function() {
                     const message = await response.text();
                     throw new Error(message || "URLから動画を保存できませんでした。");
                 }
-                urlImportStatus.textContent = "保存が完了しました。一覧へ移動します。";
-                const selectedFolder = urlImportForm.elements.folderId.value;
-                window.location.href = selectedFolder
-                    ? urlImportForm.action.replace(/\/import-url$/, "/folder/" + encodeURIComponent(selectedFolder))
-                    : urlImportForm.action.replace(/\/import-url$/, "");
+                const started = await response.json();
+                sessionStorage.setItem(jobStorageKey, started.jobId);
+                pollJob(started.jobId);
             } catch (error) {
+				urlImportProgress.hidden = false;
                 urlImportStatus.textContent = error.message;
                 urlImportButton.disabled = false;
                 urlImportButton.textContent = "URLから保存";
             }
         });
+
+        const existingJobId = sessionStorage.getItem(jobStorageKey);
+        if (existingJobId) pollJob(existingJobId);
     }
 
 });

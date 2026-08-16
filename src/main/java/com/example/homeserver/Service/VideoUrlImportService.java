@@ -63,9 +63,17 @@ public class VideoUrlImportService {
 	}
 
 	public void importVideo(String rawUrl, Long folderId) {
+		importVideo(rawUrl, folderId, VideoUrlImportProgressListener.NOOP);
+	}
+
+	public void importVideo(String rawUrl, Long folderId, VideoUrlImportProgressListener progressListener) {
+		VideoUrlImportProgressListener progress = progressListener == null
+				? VideoUrlImportProgressListener.NOOP : progressListener;
+		progress.onStage(VideoUrlImportStage.URL_ANALYZING);
 		// Check the configured work filesystem before doing any remote page fetch.
 		ensureUsableSpace(VideoSourceExtractor.MediaKind.MP4);
 		URI pageUri = validator.validate(rawUrl);
+		progress.onStage(VideoUrlImportStage.VIDEO_INFO_FETCHING);
 		VideoSourceExtractor.ExtractedVideoSource source = extractSource(pageUri);
 
 		Path workDirectory = null;
@@ -77,14 +85,34 @@ public class VideoUrlImportService {
 			workDirectory = Files.createTempDirectory(tempBaseDirectory, WORK_DIRECTORY_PREFIX);
 			Path downloaded;
 			if (source.kind() == VideoSourceExtractor.MediaKind.HLS) {
-				downloaded = hls.downloadAsMp4(source.mediaUri(), workDirectory, source.requestContext());
+				progress.onStage(VideoUrlImportStage.HLS_PLAYLIST_ANALYZING);
+				downloaded = hls.downloadAsMp4(source.mediaUri(), workDirectory, source.requestContext(), hlsProgress -> {
+					progress.onHlsProgress(hlsProgress);
+					if (hlsProgress.totalSegments() > 0
+							&& hlsProgress.completedSegments() >= hlsProgress.totalSegments()) {
+						progress.onStage(VideoUrlImportStage.MP4_CREATING);
+					} else {
+						progress.onStage(VideoUrlImportStage.DOWNLOADING);
+					}
+				});
 			} else {
+				progress.onStage(VideoUrlImportStage.DOWNLOADING);
 				downloaded = workDirectory.resolve("downloaded.mp4");
-				http.download(source.mediaUri(), downloaded, maxBytes, source.requestContext(),
+				SafeUrlHttpClient.DownloadResponse response = http.download(
+						source.mediaUri(), downloaded, maxBytes, source.requestContext(),
 						SafeUrlHttpClient.ImportStage.MEDIA);
+				progress.onHlsProgress(new HlsDownloadService.HlsProgress(0, 0, response.bytes()));
 			}
 			try {
-				videos.importDownloadedVideo(downloaded, source.title(), folderId);
+				videos.importDownloadedVideo(downloaded, source.title(), folderId,
+						new VideoService.ImportProgressListener() {
+							@Override public void onThumbnailGenerating() {
+								progress.onStage(VideoUrlImportStage.THUMBNAIL_GENERATING);
+							}
+							@Override public void onSaving() {
+								progress.onStage(VideoUrlImportStage.SAVING);
+							}
+						});
 			} catch (RuntimeException e) {
 				VideoUrlImportException.Reason reason = hasDatabaseCause(e)
 						? VideoUrlImportException.Reason.DATABASE_FAILED
