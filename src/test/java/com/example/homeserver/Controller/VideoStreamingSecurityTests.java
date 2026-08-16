@@ -13,6 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.file.Path;
+import java.util.List;
+
+import jakarta.servlet.http.Cookie;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +28,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.homeserver.Config.SecurityConfig;
+import com.example.homeserver.Auth.SharedAuthTokenService;
 import com.example.homeserver.Repository.TagRepository;
 import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
@@ -36,6 +40,8 @@ import com.example.homeserver.Service.VideoStreamService;
 class VideoStreamingSecurityTests {
 	@Autowired
 	MockMvc mockMvc;
+	@Autowired
+	SharedAuthTokenService sharedAuthTokenService;
 
 	@MockBean VideoService videoService;
 	@MockBean VideoStreamService videoStreamService;
@@ -98,5 +104,20 @@ class VideoStreamingSecurityTests {
 						org.hamcrest.Matchers.containsString("MEDIA_AUTH="),
 						org.hamcrest.Matchers.containsString("Max-Age=0"),
 						org.hamcrest.Matchers.containsString("Path=/"))));
+	}
+
+	@Test
+	void signedMediaAuthCookieRestoresAuthenticationBeforeAuthorization() throws Exception {
+		Path path = Path.of("validated-video.mp4");
+		when(videoService.getVideoPath(1L)).thenReturn(path);
+		when(videoStreamService.stream(eq(path), eq("bytes=100-199")))
+				.thenReturn(ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+						.header(HttpHeaders.ACCEPT_RANGES, "bytes").build());
+		String token = sharedAuthTokenService.create("viewer", List.of("ROLE_USER"));
+
+		mockMvc.perform(get("/videos/play/1")
+					.header(HttpHeaders.RANGE, "bytes=100-199")
+					.cookie(new Cookie("MEDIA_AUTH", token)))
+				.andExpect(status().isPartialContent());
 	}
 }

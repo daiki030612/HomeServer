@@ -41,7 +41,8 @@ public class SecurityConfig {
             )
             .requestCache(cache -> cache.disable())
             .securityContext(context -> context.securityContextRepository(new RequestAttributeSecurityContextRepository()))
-            .addFilterBefore(new SharedAuthCookieFilter(cookies, tokens), UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(new SharedAuthCookieFilter(cookies, tokens, properties),
+                    UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

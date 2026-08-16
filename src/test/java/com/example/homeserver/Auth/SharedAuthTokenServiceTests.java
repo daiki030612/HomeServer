@@ -25,6 +25,29 @@ class SharedAuthTokenServiceTests {
         String token = new SharedAuthTokenService(properties, Clock.fixed(NOW, ZoneOffset.UTC)).create("viewer", List.of("ROLE_USER"));
         assertThat(new SharedAuthTokenService(properties, Clock.fixed(NOW.plusSeconds(2), ZoneOffset.UTC)).verify(token)).isEmpty();
     }
+    @Test void diagnosticsDistinguishValidExpiredAndTamperedTokensWithoutExposingValues() {
+        SharedAuthProperties properties = properties(Duration.ofHours(1));
+        SharedAuthTokenService issuer = new SharedAuthTokenService(properties, Clock.fixed(NOW, ZoneOffset.UTC));
+        String token = issuer.create("viewer", List.of("ROLE_USER"));
+
+        var valid = issuer.diagnoseAndVerify(token);
+        assertThat(valid.identity()).isPresent();
+        assertThat(valid.parseSuccess()).isTrue();
+        assertThat(valid.signatureValid()).isTrue();
+        assertThat(valid.expired()).isFalse();
+        assertThat(valid.expirationTime()).isEqualTo(NOW.plus(Duration.ofHours(1)));
+
+        var expired = new SharedAuthTokenService(properties, Clock.fixed(NOW.plus(Duration.ofHours(2)), ZoneOffset.UTC))
+                .diagnoseAndVerify(token);
+        assertThat(expired.identity()).isEmpty();
+        assertThat(expired.signatureValid()).isTrue();
+        assertThat(expired.expired()).isTrue();
+        assertThat(expired.failureReason()).isEqualTo("expired");
+
+        var tampered = issuer.diagnoseAndVerify(token + "x");
+        assertThat(tampered.identity()).isEmpty();
+        assertThat(tampered.signatureValid()).isFalse();
+    }
     private static SharedAuthProperties properties(Duration ttl) {
         SharedAuthProperties properties = new SharedAuthProperties();
         properties.setSecret("test-only-shared-auth-secret-32-characters-minimum");
