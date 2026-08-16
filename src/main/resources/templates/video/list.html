@@ -124,9 +124,10 @@
 				ondragover="allowVideoDrop(event, this)" ondragenter="enterVideoDrop(event, this)"
 				ondragleave="leaveVideoDrop(event, this)" ondrop="dropVideo(event, this)">
 
-				<a class="folder-link" th:href="@{/videos/folder/{id}(id=${folder.id})}">
+				<a class="folder-link" th:href="@{/videos/folder/{id}(id=${folder.id})}"
+					th:aria-label="|${folder.name} フォルダを開く|">
 
-					<div class="folder-icon"></div>
+					<div class="folder-icon" aria-hidden="true"></div>
 
 					<div class="folder-name" th:text="${folder.name}">
 						フォルダ名
@@ -135,15 +136,18 @@
 
 				</a>
 				<button type="button" class="folder-menu-button" onclick="toggleFolderMenu(event, this)"
-					aria-label="フォルダ操作メニュー" aria-haspopup="menu" aria-expanded="false">⋯</button>
+					th:id="|folder-menu-button-${folder.id}|" th:aria-controls="|folder-menu-${folder.id}|"
+					th:aria-label="|${folder.name} の操作メニュー|"
+					aria-haspopup="menu" aria-expanded="false">…</button>
 
 
 				<!-- フォルダメニュー -->
 
-				<div class="folder-menu-dropdown" role="menu">
+				<div class="folder-menu-dropdown" role="menu" th:id="|folder-menu-${folder.id}|"
+					th:aria-labelledby="|folder-menu-button-${folder.id}|">
 
 					<a href="#" th:data-id="${folder.id}" th:data-name="${folder.name}"
-						onclick="openRenameFolderModal(event, this)">
+						onclick="openRenameFolderModal(event, this)" role="menuitem">
 
 						名前を変更
 
@@ -152,7 +156,7 @@
 
 					<form th:action="@{/folders/delete/{id}(id=${folder.id})}" method="post"
 						onsubmit="return confirm('このフォルダーを削除しますか？');">
-						<button type="submit" class="menu-action-button danger-action">削除</button>
+						<button type="submit" class="menu-action-button danger-action" role="menuitem">削除</button>
 					</form>
 
 				</div>

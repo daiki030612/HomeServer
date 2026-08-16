@@ -11,6 +11,8 @@ function toggleMenu(event, button) {
 
     const menu = button.nextElementSibling;
 
+    closeFolderMenus();
+
     document
         .querySelectorAll(".menu-dropdown")
         .forEach(function(otherMenu) {
@@ -642,29 +644,39 @@ function toggleFolderMenu(event, button) {
     event.stopPropagation();
 
 
-    const menu =
-        button.nextElementSibling;
+    const menu = button.parentElement.querySelector(".folder-menu-dropdown");
+    const willOpen = !menu.classList.contains("show");
 
+    closeFolderMenus(menu);
+    document.querySelectorAll(".menu-dropdown.show").forEach(function(otherMenu) {
+        otherMenu.classList.remove("show");
+    });
 
-    document
-        .querySelectorAll(".menu-dropdown, .folder-menu-dropdown")
-        .forEach(function(otherMenu) {
+    if (!willOpen) {
+        button.setAttribute("aria-expanded", "false");
+        return;
+    }
 
-            if (otherMenu !== menu) {
+    menu.classList.remove("open-upward");
+    menu.classList.add("show");
+    button.setAttribute("aria-expanded", "true");
 
-                otherMenu.classList.remove("show");
+    if (menu.getBoundingClientRect().bottom > window.innerHeight - 12) {
+        menu.classList.add("open-upward");
+    }
 
-            }
+    const firstItem = menu.querySelector('[role="menuitem"]');
+    if (firstItem) firstItem.focus({ preventScroll: true });
 
-        });
+}
 
-
-    menu.classList.toggle("show");
-    button.setAttribute(
-        "aria-expanded",
-        menu.classList.contains("show") ? "true" : "false"
-    );
-
+function closeFolderMenus(exceptMenu) {
+    document.querySelectorAll(".folder-menu-dropdown.show").forEach(function(menu) {
+        if (menu === exceptMenu) return;
+        menu.classList.remove("show", "open-upward");
+        const button = menu.parentElement.querySelector(".folder-menu-button");
+        if (button) button.setAttribute("aria-expanded", "false");
+    });
 }
 
 
@@ -702,6 +714,8 @@ function openRenameFolderModal(
         .getElementById("renameFolderModal")
         .classList.add("show");
 
+    closeFolderMenus();
+
 }
 
 
@@ -717,98 +731,6 @@ function closeRenameFolderModal() {
 
 }
 // =========================
-// フォルダメニュー
-// =========================
-
-let folderLongPressTimer = null;
-
-
-// =========================
-// PC：右クリック
-// =========================
-
-function openFolderMenu(event, card) {
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const menu =
-        card.querySelector(".folder-menu-dropdown");
-
-
-    // 他のメニューを閉じる
-
-    document
-        .querySelectorAll(".folder-menu-dropdown")
-        .forEach(function(otherMenu) {
-
-            if (otherMenu !== menu) {
-
-                otherMenu.classList.remove("show");
-
-            }
-
-        });
-
-
-    // メニュー位置
-
-    const rect =
-        card.getBoundingClientRect();
-
-    menu.style.left =
-        (event.clientX - rect.left) + "px";
-
-    menu.style.top =
-        (event.clientY - rect.top) + "px";
-
-
-    menu.classList.add("show");
-
-}
-
-
-// =========================
-// スマホ：長押し開始
-// =========================
-
-function startFolderLongPress(event, card) {
-
-    folderLongPressTimer =
-        setTimeout(function() {
-
-            const touch =
-                event.touches[0];
-
-            openFolderMenu(
-                {
-                    preventDefault: function() {},
-                    stopPropagation: function() {},
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                },
-                card
-            );
-
-        }, 600);
-
-}
-
-
-// =========================
-// 長押しキャンセル
-// =========================
-
-function cancelFolderLongPress() {
-
-    clearTimeout(
-        folderLongPressTimer
-    );
-
-}
-
-
-// =========================
 // フォルダ外クリックで閉じる
 // =========================
 
@@ -816,29 +738,8 @@ document.addEventListener(
     "click",
     function(event) {
 
-        if (
-            !event.target.closest(".folder-card")
-        ) {
-
-            document
-                .querySelectorAll(
-                    ".folder-menu-dropdown"
-                )
-                .forEach(function(menu) {
-
-                    menu.classList.remove("show");
-
-                });
-
-            document
-                .querySelectorAll(".folder-menu-button")
-                .forEach(function(button) {
-
-                    button.setAttribute("aria-expanded", "false");
-
-                });
-
-        }
+        if (!event.target.closest(".folder-menu-dropdown")
+                && !event.target.closest(".folder-menu-button")) closeFolderMenus();
 
     }
 );
@@ -861,7 +762,13 @@ document.addEventListener("keydown", function(event) {
 
     document.querySelectorAll(".menu-dropdown.show, .folder-menu-dropdown.show")
         .forEach(function(menu) {
-            menu.classList.remove("show");
+            menu.classList.remove("show", "open-upward");
+        });
+
+    document.querySelectorAll(".folder-menu-button[aria-expanded='true']")
+        .forEach(function(button) {
+            button.setAttribute("aria-expanded", "false");
+            button.focus({ preventScroll: true });
         });
 });
 
