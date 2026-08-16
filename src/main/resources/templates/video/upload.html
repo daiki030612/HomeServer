@@ -90,6 +90,24 @@
 
 		</section>
 
+		<section class="upload-card url-import-card">
+			<p class="eyebrow">IMPORT FROM URL</p>
+			<h2>動画ページURLから保存</h2>
+			<p class="upload-description">
+				公開されたMP4・m3u8 URL、または標準のvideo/source/og:videoを含むページに対応します。
+			</p>
+			<form id="url-import-form" th:action="@{/videos/import-url}" method="post">
+				<input type="hidden" name="folderId"
+				       th:value="${currentFolder != null ? currentFolder.id : ''}">
+				<label for="video-url">動画ページURL</label>
+				<input id="video-url" class="url-input" type="url" name="url"
+				       inputmode="url" autocomplete="url" required
+				       placeholder="https://example.com/video-page">
+				<button id="url-import-button" type="submit" class="upload-button">URLから保存</button>
+			</form>
+			<div id="url-import-status" class="url-import-status" role="status" aria-live="polite"></div>
+		</section>
+
 	</main>
 
 

@@ -1,6 +1,7 @@
 package com.example.homeserver.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -306,6 +307,39 @@ public class VideoService {
 				throw new RuntimeException("アップロードに失敗しました。", e);
 			}
 
+	}
+
+	public void importDownloadedVideo(Path downloadedFile, String pageTitle, Long folderId) {
+		if (downloadedFile == null || !Files.isRegularFile(downloadedFile)) {
+			throw new IllegalArgumentException("Downloaded video file is missing");
+		}
+		String safeTitle = pageTitle == null ? "URL import" : pageTitle
+				.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_")
+				.replaceAll("\\s+", " ").trim();
+		if (safeTitle.isBlank()) safeTitle = "URL import";
+		if (safeTitle.length() > 180) safeTitle = safeTitle.substring(0, 180).trim();
+		upload(new PathMultipartFile(downloadedFile, safeTitle + ".mp4"), folderId);
+	}
+
+	private static final class PathMultipartFile implements MultipartFile {
+		private final Path source;
+		private final String originalFilename;
+
+		private PathMultipartFile(Path source, String originalFilename) {
+			this.source = source;
+			this.originalFilename = originalFilename;
+		}
+
+		@Override public String getName() { return "file"; }
+		@Override public String getOriginalFilename() { return originalFilename; }
+		@Override public String getContentType() { return "video/mp4"; }
+		@Override public boolean isEmpty() { try { return Files.size(source) == 0; } catch (IOException e) { return true; } }
+		@Override public long getSize() { try { return Files.size(source); } catch (IOException e) { return 0; } }
+		@Override public byte[] getBytes() throws IOException { return Files.readAllBytes(source); }
+		@Override public InputStream getInputStream() throws IOException { return Files.newInputStream(source); }
+		@Override public void transferTo(java.io.File destination) throws IOException {
+			Files.copy(source, destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		}
 	}
 
 	// 動画削除

@@ -26,6 +26,8 @@ import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
+import com.example.homeserver.Service.VideoUrlImportException;
+import com.example.homeserver.Service.VideoUrlImportService;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
@@ -45,6 +47,9 @@ public class VideoController {
 
 	@Autowired
 	private TagService tagService;
+
+	@Autowired
+	private VideoUrlImportService videoUrlImportService;
 
 	// =========================
 	// 動画一覧表示
@@ -303,6 +308,23 @@ public class VideoController {
 	        return ResponseEntity.badRequest().body(
 	                "アップロードに失敗しました。保存先の空き容量とサーバー設定を確認してください。");
 	    }
+	}
+
+	@PostMapping("/import-url")
+	public ResponseEntity<?> importFromUrl(
+			@RequestParam("url") String url,
+			@RequestParam(value = "folderId", required = false) Long folderId) {
+		try {
+			videoUrlImportService.importVideo(url, folderId);
+			return ResponseEntity.ok().build();
+		} catch (VideoUrlImportException e) {
+			logger.warn("Video URL import failed: reason={}", e.getReason());
+			return ResponseEntity.badRequest().body(e.getMessage());
+		} catch (Exception e) {
+			logger.error("Unexpected video URL import failure", e);
+			return ResponseEntity.internalServerError()
+					.body("動画を保存できませんでした。サーバー設定と空き容量を確認してください。");
+		}
 	}
 	// =========================
 	// 動画削除

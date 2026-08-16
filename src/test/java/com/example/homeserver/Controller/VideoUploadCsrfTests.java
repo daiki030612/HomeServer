@@ -31,6 +31,8 @@ import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
+import com.example.homeserver.Service.VideoUrlImportException;
+import com.example.homeserver.Service.VideoUrlImportService;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
@@ -55,6 +57,9 @@ class VideoUploadCsrfTests {
 
     @MockBean
     private TagService tagService;
+
+    @MockBean
+    private VideoUrlImportService videoUrlImportService;
 
     @Test
     void uploadWithCsrfHeaderSucceeds() throws Exception {
@@ -144,5 +149,42 @@ class VideoUploadCsrfTests {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(
                         "アップロードに失敗しました。保存先の空き容量とサーバー設定を確認してください。"));
+    }
+
+    @Test
+    void urlImportRequiresCsrfAndInvokesService() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/videos/import-url")
+                        .param("url", "https://example.com/video.mp4")
+                        .with(user("uploader"))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(videoUrlImportService).importVideo("https://example.com/video.mp4", null);
+    }
+
+    @Test
+    void urlImportWithoutCsrfIsForbidden() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/videos/import-url")
+                        .param("url", "https://example.com/video.mp4")
+                        .with(user("uploader")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void urlImportReturnsOnlySafeCategorizedMessage() throws Exception {
+        doThrow(new VideoUrlImportException(
+                VideoUrlImportException.Reason.INVALID_URL,
+                "公開HTTP(S) URLを入力してください。"))
+                .when(videoUrlImportService).importVideo(any(String.class), isNull());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/videos/import-url")
+                        .param("url", "http://127.0.0.1/private")
+                        .with(user("uploader"))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("公開HTTP(S) URLを入力してください。"));
     }
 }

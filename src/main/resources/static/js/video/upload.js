@@ -30,6 +30,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const progressSize =
         document.getElementById("progress-size");
 
+    const csrfToken =
+        document.querySelector('meta[name="_csrf"]')?.content;
+
+    const csrfHeader =
+        document.querySelector('meta[name="_csrf_header"]')?.content;
+
 
     /*
      * =========================
@@ -114,12 +120,6 @@ document.addEventListener("DOMContentLoaded", function() {
 		    "POST",
 		    "/videos/upload"
 		);
-
-		const csrfToken =
-		    document.querySelector('meta[name="_csrf"]')?.content;
-
-		const csrfHeader =
-		    document.querySelector('meta[name="_csrf_header"]')?.content;
 
 		if (!csrfToken || !csrfHeader) {
 		    alert("セキュリティトークンを取得できませんでした。ページを再読み込みしてください。");
@@ -307,6 +307,48 @@ document.addEventListener("DOMContentLoaded", function() {
         progressArea.style.display =
             "none";
 
+    }
+
+    const urlImportForm = document.getElementById("url-import-form");
+    const urlImportButton = document.getElementById("url-import-button");
+    const urlImportStatus = document.getElementById("url-import-status");
+
+    if (urlImportForm) {
+        urlImportForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            if (!csrfToken || !csrfHeader) {
+                alert("セキュリティトークンを取得できませんでした。ページを再読み込みしてください。");
+                return;
+            }
+
+            urlImportButton.disabled = true;
+            urlImportButton.textContent = "保存処理中...";
+            urlImportStatus.textContent = "ページ解析と動画保存を実行しています。この画面を閉じずにお待ちください。";
+
+            try {
+                const response = await fetch(urlImportForm.action, {
+                    method: "POST",
+                    headers: {
+                        [csrfHeader]: csrfToken,
+                        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+                    },
+                    body: new URLSearchParams(new FormData(urlImportForm))
+                });
+                if (!response.ok) {
+                    const message = await response.text();
+                    throw new Error(message || "URLから動画を保存できませんでした。");
+                }
+                urlImportStatus.textContent = "保存が完了しました。一覧へ移動します。";
+                const selectedFolder = urlImportForm.elements.folderId.value;
+                window.location.href = selectedFolder
+                    ? urlImportForm.action.replace(/\/import-url$/, "/folder/" + encodeURIComponent(selectedFolder))
+                    : urlImportForm.action.replace(/\/import-url$/, "");
+            } catch (error) {
+                urlImportStatus.textContent = error.message;
+                urlImportButton.disabled = false;
+                urlImportButton.textContent = "URLから保存";
+            }
+        });
     }
 
 });

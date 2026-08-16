@@ -8,6 +8,31 @@
 	padding: 0 30px;
 }
 
+.url-import-card {
+	margin-top: 24px;
+}
+
+.url-import-card form {
+	display: grid;
+	gap: 12px;
+}
+
+.url-input {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 14px 16px;
+	border: 1px solid #353a48;
+	border-radius: 10px;
+	background: #0f1117;
+	color: inherit;
+	font: inherit;
+}
+
+.url-import-status {
+	min-height: 1.5em;
+	margin-top: 14px;
+}
+
 .upload-card {
 	background: white;
 	border-radius: 32px;

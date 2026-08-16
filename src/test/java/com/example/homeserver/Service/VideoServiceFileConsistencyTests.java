@@ -154,6 +154,20 @@ class VideoServiceFileConsistencyTests {
 	}
 
 	@Test
+	void downloadedMp4UsesExistingUploadThumbnailAndDatabasePipeline() throws Exception {
+		Path downloaded = Files.write(temporaryDirectory.resolve("downloaded.mp4"), new byte[] { 1, 2, 3 });
+		configureSuccessfulThumbnail();
+
+		videoService.importDownloadedVideo(downloaded, "Page: title?", null);
+
+		verify(thumbnailService).createThumbnail(any(String.class), any(String.class));
+		verify(videoRepository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(video ->
+				video.getTitle().equals("Page_ title_.mp4")
+						&& video.getFileName().endsWith(".mp4")
+						&& video.getThumbnailName().endsWith(".jpg")));
+	}
+
+	@Test
 	void remuxDecisionProducesMp4AndRemovesMovOriginal() throws Exception {
 		configureMultipartFile("sample.mov");
 		configureSuccessfulThumbnail();
