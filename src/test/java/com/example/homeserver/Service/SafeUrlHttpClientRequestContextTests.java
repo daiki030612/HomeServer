@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
@@ -123,6 +125,39 @@ class SafeUrlHttpClientRequestContextTests {
 		verify(validator).validate(second);
 	}
 
+	@Test
+	void failedAttemptRollsBackOnlyItsSharedBudgetBytes() throws Exception {
+		UrlSafetyValidator validator = mock(UrlSafetyValidator.class);
+		HttpClient client = mock(HttpClient.class);
+		URI media = URI.create("https://media.example/retry.ts");
+		when(validator.validate(media)).thenReturn(media);
+		ArrayDeque<HttpResponse<InputStream>> responses = new ArrayDeque<>();
+		responses.add(response(200, Map.of(), new InputStream() {
+			private boolean first = true;
+			@Override public int read() throws IOException { throw new IOException("use bulk read"); }
+			@Override public int read(byte[] buffer, int offset, int length) throws IOException {
+				if (!first) throw new IOException("connection reset");
+				first = false;
+				byte[] bytes = "123456".getBytes(StandardCharsets.UTF_8);
+				System.arraycopy(bytes, 0, buffer, offset, bytes.length);
+				return bytes.length;
+			}
+		}));
+		responses.add(response(200, Map.of(), new ByteArrayInputStream("123456".getBytes(StandardCharsets.UTF_8))));
+		when(client.send(any(HttpRequest.class), anyInputStreamHandler())).thenAnswer(invocation ->
+				responses.removeFirst());
+		SafeUrlHttpClient safe = new SafeUrlHttpClient(validator, client, "Test Agent/1.0");
+		SafeUrlHttpClient.SharedDownloadBudget budget = new SafeUrlHttpClient.SharedDownloadBudget(10);
+
+		assertThrows(VideoUrlImportException.class, () -> safe.download(media, directory.resolve("first.ts"),
+				100, VideoSourceRequestContext.EMPTY, SafeUrlHttpClient.ImportStage.HLS_RESOURCE, budget));
+		assertEquals(0, budget.consumedBytes());
+
+		safe.download(media, directory.resolve("second.ts"), 100, VideoSourceRequestContext.EMPTY,
+				SafeUrlHttpClient.ImportStage.HLS_RESOURCE, budget);
+		assertEquals(6, budget.consumedBytes());
+	}
+
 	private boolean downloadWithinBudget(SafeUrlHttpClient safe, URI uri, Path target,
 			SafeUrlHttpClient.SharedDownloadBudget budget) {
 		try {
@@ -141,10 +176,15 @@ class SafeUrlHttpClientRequestContextTests {
 
 	@SuppressWarnings("unchecked")
 	private HttpResponse<java.io.InputStream> response(int status, Map<String, List<String>> headers, String body) {
+		return response(status, headers, new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+	}
+
+	private HttpResponse<java.io.InputStream> response(int status, Map<String, List<String>> headers,
+			InputStream body) {
 		HttpResponse<java.io.InputStream> response = mock(HttpResponse.class);
 		when(response.statusCode()).thenReturn(status);
 		when(response.headers()).thenReturn(HttpHeaders.of(headers, (name, value) -> true));
-		when(response.body()).thenReturn(new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+		when(response.body()).thenReturn(body);
 		return response;
 	}
 }

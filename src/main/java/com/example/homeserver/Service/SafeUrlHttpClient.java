@@ -11,6 +11,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -138,7 +141,7 @@ public class SafeUrlHttpClient {
 				logger.warn("URL import HTTP failure: stage={}, host={}, status={}",
 						safeStage, current.getHost(), status);
 				response.body().close();
-				throw new IOException("Unexpected HTTP status " + status);
+				throw new HttpStatusException(status, parseRetryAfter(response));
 			}
 			long declaredLength = response.headers().firstValueAsLong("Content-Length").orElse(-1);
 			if (declaredLength > maxBytes) {
@@ -169,6 +172,7 @@ public class SafeUrlHttpClient {
 	private void copyLimited(InputStream input, Path destination, long maxBytes,
 			SharedDownloadBudget sharedBudget) throws IOException {
 		long total = 0;
+		long budgetClaimed = 0;
 		byte[] buffer = new byte[64 * 1024];
 		try (input; var output = Files.newOutputStream(destination,
 				StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
@@ -176,18 +180,54 @@ public class SafeUrlHttpClient {
 			while ((read = input.read(buffer)) != -1) {
 				total += read;
 				if (total > maxBytes) throw new ResponseSizeLimitException();
-				if (sharedBudget != null) sharedBudget.claim(read);
+				if (sharedBudget != null) {
+					sharedBudget.claim(read);
+					budgetClaimed += read;
+				}
 				output.write(buffer, 0, read);
 			}
 		} catch (IOException e) {
+			if (sharedBudget != null && budgetClaimed > 0) sharedBudget.release(budgetClaimed);
 			Files.deleteIfExists(destination);
 			throw e;
+		}
+	}
+
+	private Duration parseRetryAfter(HttpResponse<?> response) {
+		Optional<String> value = response.headers().firstValue("Retry-After");
+		if (value.isEmpty()) return null;
+		String raw = value.get().trim();
+		try {
+			long seconds = Long.parseLong(raw);
+			return seconds < 0 ? null : Duration.ofSeconds(seconds);
+		} catch (NumberFormatException ignored) {
+			try {
+				Duration duration = Duration.between(ZonedDateTime.now(),
+						ZonedDateTime.parse(raw, DateTimeFormatter.RFC_1123_DATE_TIME));
+				return duration.isNegative() ? Duration.ZERO : duration;
+			} catch (DateTimeParseException ignoredDate) {
+				return null;
+			}
 		}
 	}
 
 	private record Response(URI finalUri, Path file, String contentType) {}
 	private static class ResponseSizeLimitException extends IOException {
 		private static final long serialVersionUID = 1L;
+	}
+	public static final class HttpStatusException extends IOException {
+		private static final long serialVersionUID = 1L;
+		private final int statusCode;
+		private final Duration retryAfter;
+
+		public HttpStatusException(int statusCode, Duration retryAfter) {
+			super("HTTP request failed with status " + statusCode);
+			this.statusCode = statusCode;
+			this.retryAfter = retryAfter;
+		}
+
+		public int statusCode() { return statusCode; }
+		public Duration retryAfter() { return retryAfter; }
 	}
 	public record TextResponse(URI finalUri, String body, String contentType) {}
 	public record DownloadResponse(URI finalUri, String contentType, long bytes) {}
@@ -207,6 +247,11 @@ public class SafeUrlHttpClient {
 				if (bytes > limit - current) throw new ResponseSizeLimitException();
 				if (consumed.compareAndSet(current, current + bytes)) return;
 			}
+		}
+
+		private void release(long bytes) {
+			if (bytes <= 0) return;
+			consumed.updateAndGet(current -> Math.max(0, current - bytes));
 		}
 
 		public long consumedBytes() { return consumed.get(); }
