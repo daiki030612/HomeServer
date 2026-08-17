@@ -26,7 +26,7 @@
 				お気に入りの動画を、プライベートライブラリへ追加します。
 			</p>
 
-			<form id="upload-form" enctype="multipart/form-data">
+			<form id="upload-form" th:action="@{/videos/upload}" method="post" enctype="multipart/form-data">
 				<input type="hidden"
 				       id="folderId"
 				       name="folderId"

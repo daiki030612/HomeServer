@@ -24,13 +24,13 @@
 
 			<div class="mobile-menu">
 
-				<a href="/videos">
+				<a th:href="@{/videos}">
 					ライブラリ
 				</a>
 
 
 				<!-- 検索 -->
-				<form class="header-search" action="/videos" method="get">
+				<form class="header-search" th:action="@{/videos}" method="get">
 
 					<input type="text" name="keyword" placeholder="動画を検索..." th:value="${keyword}">
 

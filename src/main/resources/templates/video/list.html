@@ -9,6 +9,7 @@
 	<!-- CSRF Token -->
 	<meta name="_csrf" th:content="${_csrf.token}"/>
 	<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+	<meta name="video-move-url" th:content="@{/videos/move}"/>
 </head>
 
 <body>
@@ -28,7 +29,7 @@
 		<div class="breadcrumb">
 
 			<!-- Videos = ルートフォルダー -->
-			<a href="/videos" class="breadcrumb-root" ondragover="allowBreadcrumbDrop(event, this)"
+			<a th:href="@{/videos}" class="breadcrumb-root" ondragover="allowBreadcrumbDrop(event, this)"
 				ondragenter="enterBreadcrumbDrop(event, this)" ondragleave="leaveBreadcrumbDrop(event, this)"
 				ondrop="dropBreadcrumbVideo(event, this)">
 
@@ -209,6 +210,7 @@
 
 
 						<div class="menu-dropdown">
+							<div class="action-sheet-title" aria-hidden="true"></div>
 
 							<!-- 名前・タグ編集 -->
 							<a href="#" class="edit-video-button" th:data-id="${video.id}"
@@ -223,6 +225,9 @@
 
 							<!-- フォルダーへ移動 -->
 							<a href="#" class="move-video-button" th:data-id="${video.id}"
+								th:data-title="${video.title}"
+								th:data-current-folder-id="${video.folder != null ? video.folder.id : ''}"
+								th:data-current-folder-name="${video.folder != null ? video.folder.name : 'ライブラリ（ルート）'}"
 								onclick="openMoveFolderModal(event, this)">
 
 								フォルダーへ移動
@@ -231,10 +236,12 @@
 
 
 							<!-- 動画削除 -->
-							<form th:action="@{/videos/delete/{id}(id=${video.id})}" method="post"
+							<form class="video-delete-form" th:action="@{/videos/delete/{id}(id=${video.id})}" method="post"
 								onsubmit="return confirm('この動画を削除しますか？');">
 								<button type="submit" class="menu-action-button danger-action">削除</button>
 							</form>
+
+							<button type="button" class="action-sheet-cancel" onclick="closeVideoMenus()">キャンセル</button>
 
 						</div>
 
@@ -258,7 +265,7 @@
 				<h2>動画を編集</h2>
 
 
-				<form th:action="@{/videos/edit}" method="post">
+				<form id="videoEditForm" th:action="@{/videos/edit}" method="post">
 
 					<!-- 動画ID -->
 					<input type="hidden" id="editId" name="id">
@@ -296,17 +303,16 @@
 
 
 								<!-- タグ削除 -->
-								<form class="tag-delete-form" th:action="@{/videos/tag/delete/{id}(id=${tag.id})}"
-									method="post" th:attr="data-tag=${tag.name}" onsubmit="
+								<button type="submit" class="tag-delete-button" formmethod="post"
+									th:formaction="@{/videos/tag/delete/{id}(id=${tag.id})}"
+									th:data-tag="${tag.name}" onclick="
 	                                   if (currentTags.includes(this.dataset.tag)) {
 	                                       alert('このタグは現在選択されているため削除できません。');
 	                                       return false;
 	                                   }
 
 	                                   return confirm('このタグを削除しますか？');
-	                               " onmousedown="event.stopPropagation();">
-									<button type="submit" class="tag-delete-button">×</button>
-								</form>
+	                               " onmousedown="event.stopPropagation();">×</button>
 
 							</div>
 
@@ -332,60 +338,47 @@
 		     フォルダー移動モーダル
 		     ========================= -->
 
-		<div id="moveFolderModal" class="modal">
+		<div id="moveFolderModal" class="modal" role="dialog" aria-modal="true"
+			aria-labelledby="moveFolderTitle">
 
-			<div class="modal-content">
+			<div class="modal-content move-folder-sheet">
 
-				<h2>動画を移動</h2>
+				<h2 id="moveFolderTitle">動画を移動</h2>
+				<p id="moveVideoTitle" class="move-video-title"></p>
+				<p class="move-current-location">
+					現在の場所: <strong id="moveCurrentFolder"></strong>
+				</p>
 
-
-				<!-- 動画ID -->
 				<input type="hidden" id="moveVideoId">
+				<input type="hidden" id="moveCurrentFolderId">
+				<input type="hidden" id="moveTargetFolderId">
 
+				<div class="move-destination-heading">移動先を選択</div>
+				<div class="move-destination-list" role="listbox" aria-label="移動先フォルダー">
+					<button type="button" class="move-destination-button" data-folder-id=""
+						data-folder-name="ライブラリ（ルート）" onclick="selectMoveDestination(this)">
+						<span>⌂ ライブラリ（ルート）</span><span class="move-current-badge">現在</span>
+					</button>
+					<button type="button" class="move-destination-button" th:each="folder : ${allFolders}"
+						th:data-folder-id="${folder.id}" th:data-folder-name="${folder.name}"
+						onclick="selectMoveDestination(this)">
+						<span th:text="'📁 ' + ${folder.name}">📁 フォルダー名</span>
+						<span class="move-current-badge">現在</span>
+					</button>
+				</div>
 
-				<!-- 移動先フォルダー -->
+				<p id="moveFolderStatus" class="move-folder-status" role="status" aria-live="polite"></p>
 
-				<label for="moveFolderId">
-					移動先
-				</label>
-
-
-				<select id="moveFolderId">
-
-					<!-- メインページ -->
-					<option value="">
-						メインページ
-					</option>
-
-
-					<!-- フォルダー一覧 -->
-					<option th:each="folder : ${allFolders}" th:value="${folder.id}" th:text="'📁 ' + ${folder.name}">
-
-						フォルダー名
-
-					</option>
-
-				</select>
-
-
-				<!-- ボタン -->
-
-				<button type="button" onclick="moveVideo()">
-
-					移動
-
-				</button>
-
-
-				<button type="button" onclick="closeMoveFolderModal()">
-
-					キャンセル
-
-				</button>
+				<div class="move-folder-actions">
+					<button type="button" id="moveFolderSubmit" onclick="moveVideo()" disabled>移動</button>
+					<button type="button" onclick="closeMoveFolderModal()">キャンセル</button>
+				</div>
 
 			</div>
 
 		</div>
+
+		<div id="videoMenuBackdrop" class="video-menu-backdrop" onclick="closeVideoMenus()" aria-hidden="true"></div>
 
 		<!-- =========================
 		     フォルダ作成モーダル

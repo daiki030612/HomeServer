@@ -1892,6 +1892,208 @@ body {
 	}
 }
 
+/* Touch-friendly video destination picker. */
+.action-sheet-title,
+.action-sheet-cancel,
+.video-menu-backdrop {
+	display: none;
+}
+
+.video-menu-backdrop.show {
+	display: block;
+}
+
+@media (hover: none) and (pointer: coarse) {
+	.video-menu-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 2998;
+		background: rgba(0, 0, 0, .48);
+	}
+
+	.menu-dropdown.touch-action-sheet {
+		position: fixed;
+		top: auto;
+		right: max(10px, env(safe-area-inset-right));
+		bottom: max(10px, env(safe-area-inset-bottom));
+		left: max(10px, env(safe-area-inset-left));
+		z-index: 2999;
+		display: block;
+		width: auto;
+		min-width: 0;
+		max-height: calc(100dvh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+		padding: 8px;
+		overflow-y: auto;
+		border-radius: 18px;
+	}
+
+	.touch-action-sheet .action-sheet-title {
+		display: block;
+		padding: 12px 14px 10px;
+		overflow: hidden;
+		color: var(--muted);
+		font-size: 13px;
+		font-weight: 700;
+		text-align: center;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.touch-action-sheet a,
+	.touch-action-sheet .menu-action-button,
+	.touch-action-sheet .action-sheet-cancel {
+		display: flex;
+		width: 100%;
+		min-height: 50px;
+		margin: 0;
+		padding: 12px 14px;
+		align-items: center;
+		justify-content: center;
+		border: 0;
+		border-radius: 10px;
+		background: transparent;
+		font: inherit;
+		font-size: 16px;
+		font-weight: 650;
+		text-align: center;
+		touch-action: manipulation;
+	}
+
+	.touch-action-sheet form {
+		margin: 0;
+	}
+
+	.touch-action-sheet .danger-action {
+		color: #ff453a !important;
+	}
+
+	.touch-action-sheet .action-sheet-cancel {
+		margin-top: 6px;
+		border-top: 1px solid var(--line);
+		color: var(--ink);
+	}
+}
+
+#moveFolderModal .move-folder-sheet {
+	width: min(520px, calc(100% - 32px));
+}
+
+.move-video-title {
+	margin: -12px 0 14px;
+	overflow: hidden;
+	color: var(--muted);
+	font-size: 14px;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.move-current-location {
+	margin: 0 0 18px;
+	font-size: 14px;
+}
+
+.move-destination-heading {
+	margin-bottom: 8px;
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--muted);
+}
+
+.move-destination-list {
+	display: grid;
+	max-height: min(42vh, 360px);
+	gap: 8px;
+	padding: 2px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+}
+
+#moveFolderModal .move-destination-button {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	min-height: 50px;
+	margin: 0;
+	padding: 11px 14px;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--surface);
+	color: var(--ink);
+	text-align: left;
+	touch-action: manipulation;
+}
+
+#moveFolderModal .move-destination-button.selected {
+	border-color: #8b5cf6;
+	box-shadow: 0 0 0 2px rgba(139, 92, 246, .2);
+}
+
+#moveFolderModal .move-destination-button.current {
+	cursor: default;
+	opacity: .68;
+}
+
+.move-current-badge {
+	display: none;
+	margin-left: 12px;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--muted);
+}
+
+.move-destination-button.current .move-current-badge {
+	display: inline;
+}
+
+.move-folder-status {
+	min-height: 21px;
+	margin: 12px 0 6px;
+	font-size: 14px;
+	color: var(--muted);
+}
+
+.move-folder-status.success { color: #34c759; }
+.move-folder-status.error { color: #ff453a; }
+
+.move-folder-actions {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+
+#moveFolderModal .move-folder-actions button {
+	min-height: 48px;
+	margin: 0;
+}
+
+#moveFolderModal .move-folder-actions button:disabled {
+	cursor: default;
+	opacity: .45;
+}
+
+@media (max-width: 600px), (hover: none) and (pointer: coarse) {
+	#moveFolderModal {
+		align-items: flex-end;
+		padding: 0;
+	}
+
+	#moveFolderModal .move-folder-sheet {
+		width: 100%;
+		max-width: none;
+		max-height: min(88dvh, 760px);
+		margin: 0;
+		padding: 24px 18px calc(18px + env(safe-area-inset-bottom));
+		border-radius: 20px 20px 0 0;
+	}
+
+	.move-destination-list {
+		max-height: min(44dvh, 390px);
+	}
+}
+
 @media (max-width: 760px) {
 	.header {
 		height: calc(58px + env(safe-area-inset-top));

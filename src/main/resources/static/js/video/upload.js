@@ -118,7 +118,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		xhr.open(
 		    "POST",
-		    "/videos/upload"
+		    form.action
 		);
 
 		if (!csrfToken || !csrfHeader) {
@@ -200,10 +200,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
                     setTimeout(
                         function() {
+                            const videoLibraryUrl = form.action.replace(/\/upload$/, "");
                             if (folderId) {
-                                window.location.href = "/videos/folder/" + folderId;
+                                window.location.href = videoLibraryUrl + "/folder/" + encodeURIComponent(folderId);
                             } else {
-                                window.location.href = "/videos";
+                                window.location.href = videoLibraryUrl;
                             }
                         },
                         500

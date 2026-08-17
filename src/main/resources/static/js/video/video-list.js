@@ -9,21 +9,54 @@ function toggleMenu(event, button) {
     event.preventDefault();
     event.stopPropagation();
 
-    const menu = button.nextElementSibling;
+    const owner = button.parentElement;
+    const menu = owner.querySelector(".menu-dropdown");
+    const willOpen = !menu.classList.contains("show");
 
     closeFolderMenus();
+    closeVideoMenus(menu);
 
-    document
-        .querySelectorAll(".menu-dropdown")
-        .forEach(function(otherMenu) {
+    if (!willOpen) {
+        closeVideoMenu(menu);
+        return;
+    }
 
-            if (otherMenu !== menu) {
-                otherMenu.classList.remove("show");
-            }
+    const touchMenu = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+    menu.querySelector(".action-sheet-title").textContent =
+        owner.closest(".video-card").querySelector(".video-card-title").textContent;
 
-        });
+    if (touchMenu) {
+        menu._videoMenuOwner = owner;
+        menu.classList.add("touch-action-sheet");
+        document.body.appendChild(menu);
+        document.getElementById("videoMenuBackdrop").classList.add("show");
+    }
 
-    menu.classList.toggle("show");
+    menu.classList.add("show");
+}
+
+function closeVideoMenu(menu) {
+    if (!menu) return;
+
+    const wasTouchMenu = menu.classList.contains("touch-action-sheet");
+    menu.classList.remove("show", "touch-action-sheet");
+    if (menu._videoMenuOwner) {
+        menu._videoMenuOwner.appendChild(menu);
+        menu._videoMenuOwner = null;
+    }
+    if (wasTouchMenu) {
+        document.getElementById("videoMenuBackdrop")?.classList.remove("show");
+    }
+}
+
+function closeVideoMenus(exceptMenu) {
+    document.querySelectorAll(".menu-dropdown").forEach(function(menu) {
+        if (menu !== exceptMenu) closeVideoMenu(menu);
+    });
+
+    if (!exceptMenu || !exceptMenu.classList.contains("touch-action-sheet")) {
+        document.getElementById("videoMenuBackdrop")?.classList.remove("show");
+    }
 }
 
 
@@ -33,19 +66,9 @@ function toggleMenu(event, button) {
  */
 
 document.addEventListener("click", function(event) {
-
-    if (!event.target.closest(".video-menu")) {
-
-        document
-            .querySelectorAll(".menu-dropdown")
-            .forEach(function(menu) {
-
-                menu.classList.remove("show");
-
-            });
-
+    if (!event.target.closest(".video-menu") && !event.target.closest(".menu-dropdown")) {
+        closeVideoMenus();
     }
-
 });
 
 
@@ -377,6 +400,8 @@ function openEditModalFromButton(
     event.preventDefault();
     event.stopPropagation();
 
+    closeVideoMenus();
+
 
     const id =
         button.dataset.id;
@@ -490,13 +515,6 @@ function closeFolderModal() {
 
 }
 
-function closeFolderModal() {
-
-    document
-        .getElementById("folderModal")
-        .classList.remove("show");
-}
-
 // =========================
 // フォルダー移動モーダル
 // =========================
@@ -506,26 +524,33 @@ function openMoveFolderModal(event, button) {
     event.preventDefault();
     event.stopPropagation();
 
+    closeVideoMenus();
 
-    // 動画IDを取得
-    const videoId =
-        button.dataset.id;
+    const currentFolderId = button.dataset.currentFolderId || "";
 
+    document.getElementById("moveVideoId").value = button.dataset.id;
+    document.getElementById("moveCurrentFolderId").value = currentFolderId;
+    document.getElementById("moveTargetFolderId").value = "";
+    document.getElementById("moveVideoTitle").textContent = button.dataset.title || "";
+    document.getElementById("moveCurrentFolder").textContent =
+        button.dataset.currentFolderName || "ライブラリ（ルート）";
 
-    // hiddenに保存
-    document
-        .getElementById("moveVideoId")
-        .value = videoId;
+    const status = document.getElementById("moveFolderStatus");
+    status.textContent = "";
+    status.className = "move-folder-status";
 
+    const submit = document.getElementById("moveFolderSubmit");
+    submit.disabled = true;
+    submit.textContent = "移動";
 
-    // メニューを閉じる
-    document
-        .querySelectorAll(".menu-dropdown")
-        .forEach(function(menu) {
-
-            menu.classList.remove("show");
-
-        });
+    document.querySelectorAll(".move-destination-button").forEach(function(destination) {
+        const isCurrent = (destination.dataset.folderId || "") === currentFolderId;
+        destination.disabled = isCurrent;
+        destination.classList.toggle("current", isCurrent);
+        destination.classList.remove("selected");
+        destination.setAttribute("aria-selected", "false");
+        destination.toggleAttribute("aria-current", isCurrent);
+    });
 
 
     // モーダルを表示
@@ -555,58 +580,23 @@ function closeMoveFolderModal() {
 
 function moveVideo() {
 
-    const videoId =
-        document
-            .getElementById("moveVideoId")
-            .value;
+    const videoId = document.getElementById("moveVideoId").value;
+    const folderId = document.getElementById("moveTargetFolderId").value;
+    const currentFolderId = document.getElementById("moveCurrentFolderId").value;
+    const status = document.getElementById("moveFolderStatus");
+    const submit = document.getElementById("moveFolderSubmit");
 
-
-    const folderId =
-        document
-            .getElementById("moveFolderId")
-            .value;
-
-
-    // FormData
-    const formData =
-        new FormData();
-
-
-    formData.append(
-        "videoId",
-        videoId
-    );
-
-
-    // folderIdが空なら
-    // メインページへ移動
-    if (folderId !== "") {
-
-        formData.append(
-            "folderId",
-            folderId
-        );
-
+    if (folderId === currentFolderId) {
+        status.textContent = "現在と同じ場所には移動できません。";
+        status.className = "move-folder-status error";
+        submit.disabled = true;
+        return;
     }
 
+    submit.disabled = true;
+    submit.textContent = "移動中…";
 
-    // CSRFトークン取得
-    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
-    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
-
-    const options = {
-        method: "POST",
-        body: formData
-    };
-
-    if (csrfToken && csrfHeader) {
-        options.headers = {
-            [csrfHeader]: csrfToken
-        };
-    }
-
-    // POST
-    fetch("/videos/move", options)
+    sendVideoMove(videoId, folderId)
         .then(function(response) {
 
             if (!response.ok) {
@@ -616,19 +606,19 @@ function moveVideo() {
                 );
 
             }
-
-
-            // 移動後にページ更新
-            window.location.reload();
+            status.textContent = "移動しました。画面を更新します。";
+            status.className = "move-folder-status success";
+            window.setTimeout(function() { window.location.reload(); }, 350);
 
         })
         .catch(function(error) {
 
             console.error(error);
 
-            alert(
-                "動画の移動に失敗しました。"
-            );
+            status.textContent = "動画の移動に失敗しました。もう一度お試しください。";
+            status.className = "move-folder-status error";
+            submit.disabled = false;
+            submit.textContent = "移動";
 
         });
 
@@ -668,6 +658,26 @@ function toggleFolderMenu(event, button) {
     const firstItem = menu.querySelector('[role="menuitem"]');
     if (firstItem) firstItem.focus({ preventScroll: true });
 
+}
+
+function selectMoveDestination(button) {
+
+    if (button.disabled) {
+        return;
+    }
+
+    document.getElementById("moveTargetFolderId").value = button.dataset.folderId || "";
+
+    document.querySelectorAll(".move-destination-button").forEach(function(destination) {
+        const selected = destination === button;
+        destination.classList.toggle("selected", selected);
+        destination.setAttribute("aria-selected", selected ? "true" : "false");
+    });
+
+    const status = document.getElementById("moveFolderStatus");
+    status.textContent = "移動先: " + (button.dataset.folderName || "ライブラリ（ルート）");
+    status.className = "move-folder-status";
+    document.getElementById("moveFolderSubmit").disabled = false;
 }
 
 function closeFolderMenus(exceptMenu) {
@@ -760,10 +770,9 @@ document.addEventListener("keydown", function(event) {
         modal.classList.remove("show");
     });
 
-    document.querySelectorAll(".menu-dropdown.show, .folder-menu-dropdown.show")
-        .forEach(function(menu) {
-            menu.classList.remove("show", "open-upward");
-        });
+    closeVideoMenus();
+    document.querySelectorAll(".folder-menu-dropdown.show")
+        .forEach(function(menu) { menu.classList.remove("show", "open-upward"); });
 
     document.querySelectorAll(".folder-menu-button[aria-expanded='true']")
         .forEach(function(button) {
@@ -932,41 +941,7 @@ function dropVideo(event, folder) {
 
 function moveVideoToFolder(videoId, folderId) {
 
-    const formData = new FormData();
-
-    formData.append(
-        "videoId",
-        videoId
-    );
-
-
-    // フォルダーIDがある場合だけ送信
-    if (folderId !== null && folderId !== undefined && folderId !== "") {
-
-        formData.append(
-            "folderId",
-            folderId
-        );
-
-    }
-
-
-    // CSRFトークン取得
-    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
-    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
-
-    const options = {
-        method: "POST",
-        body: formData
-    };
-
-    if (csrfToken && csrfHeader) {
-        options.headers = {
-            [csrfHeader]: csrfToken
-        };
-    }
-
-    fetch("/videos/move", options)
+    sendVideoMove(videoId, folderId)
         .then(function(response) {
 
             if (!response.ok) {
@@ -991,6 +966,37 @@ function moveVideoToFolder(videoId, folderId) {
 
         });
 
+}
+
+function sendVideoMove(videoId, folderId) {
+
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+    if (!csrfToken || !csrfHeader) {
+        return Promise.reject(new Error("CSRFトークンを取得できません"));
+    }
+
+    const formData = new FormData();
+    formData.append("videoId", videoId);
+
+    if (folderId !== null && folderId !== undefined && folderId !== "") {
+        formData.append("folderId", folderId);
+    }
+
+    return fetch(getVideoMoveUrl(), {
+        method: "POST",
+        headers: { [csrfHeader]: csrfToken },
+        body: formData
+    });
+}
+
+function getVideoMoveUrl() {
+    const url = document.querySelector('meta[name="video-move-url"]')?.content;
+    if (!url) {
+        throw new Error("動画移動先URLを取得できません");
+    }
+    return url;
 }
 
 // =========================

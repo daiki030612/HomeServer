@@ -10,6 +10,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
@@ -93,6 +94,64 @@ class VideoUploadCsrfTests {
 
         mockMvc.perform(multipart("/videos/upload")
                         .file(video)
+                        .with(user("uploader")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(videoService);
+    }
+
+    @Test
+    void moveWithCsrfMovesVideoToSelectedFolder() throws Exception {
+        mockMvc.perform(post("/videos/move")
+                        .param("videoId", "7")
+                        .param("folderId", "42")
+                        .with(user("uploader"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        verify(videoService).moveVideo(7L, 42L);
+    }
+
+    @Test
+    void moveWithCsrfCanMoveVideoToRoot() throws Exception {
+        mockMvc.perform(post("/videos/move")
+                        .param("videoId", "7")
+                        .with(user("uploader"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        verify(videoService).moveVideo(7L, null);
+    }
+
+    @Test
+    void moveWithoutCsrfIsForbidden() throws Exception {
+        mockMvc.perform(post("/videos/move")
+                        .param("videoId", "7")
+                        .param("folderId", "42")
+                        .with(user("uploader")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(videoService);
+    }
+
+    @Test
+    void editWithCsrfUpdatesTitleAndTags() throws Exception {
+        mockMvc.perform(post("/videos/edit")
+                        .param("id", "7")
+                        .param("title", "変更後の名前")
+                        .param("tags", "旅行,iPhone")
+                        .with(user("uploader"))
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        verify(videoService).updateVideo(7L, "変更後の名前", "旅行,iPhone");
+    }
+
+    @Test
+    void editWithoutCsrfIsForbidden() throws Exception {
+        mockMvc.perform(post("/videos/edit")
+                        .param("id", "7")
+                        .param("title", "変更後の名前")
                         .with(user("uploader")))
                 .andExpect(status().isForbidden());
 
