@@ -12,6 +12,11 @@
 			<a class="app-switch-link" data-app-target="image"
 				th:attr="data-url=${imageAppUrl},data-port=${imageAppPort},data-path=${imageAppPath}">Image</a>
 		</div>
+		<div class="storage-status" th:if="${storageInfo != null and storageInfo.available}" th:classappend="${storageInfo != null and storageInfo.warning} ? ' storage-warning'"
+			th:title="|使用 ${storageInfo.usedDisplay} / ${storageInfo.totalDisplay} (${storageInfo.usagePercent}%)|">
+			<span>ストレージ</span><strong th:text="|空き ${storageInfo.freeDisplay} / ${storageInfo.totalDisplay}|">空き容量</strong>
+			<small th:if="${storageInfo.warning}">残量注意</small>
+		</div>
 
 		<nav class="nav">
 

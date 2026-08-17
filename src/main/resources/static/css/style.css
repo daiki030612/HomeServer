@@ -1506,6 +1506,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 	.modal-content { max-height: calc(100dvh - 32px); overflow-y: auto; }
 }
 
+.storage-status { display:flex; align-items:baseline; gap:6px; padding:7px 11px; border-radius:11px; background:rgba(0,0,0,.04); color:#555; font-size:12px; white-space:nowrap; }
+.storage-status strong { color:#1d1d1f; font-size:12px; }
+.storage-status small { display:none; }
+.storage-status.storage-warning { background:#fff0e8; color:#b42318; }
+.storage-status.storage-warning strong { color:#b42318; }
+
 /* iPhone-first interaction and safe-area layer */
 html {
 	min-height: 100%;
@@ -1891,6 +1897,21 @@ body {
 		grid-template-columns: minmax(0, 1fr);
 	}
 }
+
+/* Storage capacity indicator */
+.storage-status { background:#20232d; color:var(--muted); }
+.storage-status strong { color:var(--ink); }
+.storage-status small { display:inline; font-weight:700; }
+.storage-status.storage-warning { background:#7f1d1d; color:#fecaca; }
+.storage-status.storage-warning strong { color:#fecaca; }
+@media (max-width:760px) {
+	.storage-status { order:2; max-width:calc(100vw - 210px); overflow:hidden; padding:6px 8px; }
+	.storage-status span { display:none; }
+	.storage-status strong { overflow:hidden; text-overflow:ellipsis; }
+	.app-switcher { order:3; }
+	.nav { order:4; }
+}
+@media (max-width:390px) { .storage-status { max-width:42vw; } }
 
 /* Touch-friendly video destination picker. */
 .action-sheet-title,
