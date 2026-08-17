@@ -2,32 +2,23 @@
 <html xmlns:th="http://www.thymeleaf.org">
 
 <!-- Header Fragment -->
-<header th:fragment="header" class="header">
-	<div class="header-inner">
+<header th:fragment="header" class="header unified-header">
+	<link rel="stylesheet" th:href="@{/css/unified-header.css}">
+	<div class="header-inner unified-header-inner">
 		<a th:href="@{/videos}" class="logo" aria-label="Video Server ホーム">
 			<span>VideoServer</span>
 		</a>
+		<button type="button" class="hamburger-button unified-menu-button" data-header-menu-button
+			aria-label="メニューを開く" aria-expanded="false" aria-controls="video-header-menu">
+			<span></span><span></span>
+		</button>
 		<div class="app-switcher" aria-label="アプリ切り替え">
 			<a class="app-switch-link active" th:href="@{/videos}" aria-current="page">Video</a>
 			<a class="app-switch-link" data-app-target="image"
 				th:attr="data-url=${imageAppUrl},data-port=${imageAppPort},data-path=${imageAppPath}">Image</a>
 		</div>
-		<div class="storage-status" th:if="${storageInfo != null and storageInfo.available}" th:classappend="${storageInfo != null and storageInfo.warning} ? ' storage-warning'"
-			th:title="|使用 ${storageInfo.usedDisplay} / ${storageInfo.totalDisplay} (${storageInfo.usagePercent}%)|">
-			<span>ストレージ</span><strong th:text="|空き ${storageInfo.freeDisplay} / ${storageInfo.totalDisplay}|">空き容量</strong>
-			<small th:if="${storageInfo.warning}">残量注意</small>
-		</div>
-
-		<nav class="nav">
-
-			<!-- スマホ用ハンバーガーボタン -->
-			<button type="button" class="hamburger-button" onclick="toggleMobileMenu(event)"
-				aria-label="メニューを開く" aria-expanded="false">
-				<span></span><span></span>
-			</button>
-
-
-			<div class="mobile-menu">
+		<nav class="nav unified-nav" aria-label="メインナビゲーション">
+			<div class="mobile-menu unified-menu" id="video-header-menu" data-header-menu>
 
 				<a th:href="@{/videos}">
 					ライブラリ
@@ -67,31 +58,15 @@
 				</div>
 
 		</nav>
-
+		<div class="storage-status unified-storage" th:if="${storageInfo != null and storageInfo.available}" th:classappend="${storageInfo != null and storageInfo.warning} ? ' storage-warning'"
+			th:title="|使用 ${storageInfo.usedDisplay} / ${storageInfo.totalDisplay} (${storageInfo.usagePercent}%)|">
+			<strong class="storage-desktop" th:text="|空き ${storageInfo.freeDisplay} / ${storageInfo.totalDisplay}|">空き容量</strong>
+			<strong class="storage-mobile" th:text="|${storageInfo.freeDisplay} 空き|">空き容量</strong>
+			<small th:if="${storageInfo.warning}">残量注意</small>
+		</div>
 
 		<script defer th:src="@{/js/app-navigation.js}"></script>
-		<script>
-
-			function toggleMobileMenu(event) {
-				if (event) event.stopPropagation();
-
-				const menu =
-					document.querySelector(".mobile-menu");
-
-				menu.classList.toggle("show");
-				document.querySelector(".hamburger-button")
-					.setAttribute("aria-expanded", menu.classList.contains("show"));
-
-			}
-
-			document.addEventListener("click", function (event) {
-				const menu = document.querySelector(".mobile-menu");
-				if (!menu || !menu.classList.contains("show") || event.target.closest(".nav")) return;
-				menu.classList.remove("show");
-				document.querySelector(".hamburger-button")?.setAttribute("aria-expanded", "false");
-			});
-
-		</script>
+		<script defer th:src="@{/js/header-menu.js}"></script>
 </header>
 
 </html>
