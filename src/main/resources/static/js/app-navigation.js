@@ -1,4 +1,4 @@
-document.querySelectorAll('.app-switch-link[data-app-target]').forEach((link) => {
+document.querySelectorAll('[data-app-target]').forEach((link) => {
   const configuredUrl = link.dataset.url?.trim();
   if (configuredUrl) {
     link.href = new URL(configuredUrl, window.location.origin).href;

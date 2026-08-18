@@ -17,6 +17,8 @@ class ContextPathUrlTests {
     private static final Path TEST_PAGE = Path.of("src/main/resources/templates/test.html");
     private static final Path LIST_SCRIPT = Path.of("src/main/resources/static/js/video/video-list.js");
     private static final Path UPLOAD_SCRIPT = Path.of("src/main/resources/static/js/video/upload.js");
+    private static final Path APP_NAVIGATION_SCRIPT = Path.of("src/main/resources/static/js/app-navigation.js");
+    private static final Path HEADER_MENU_SCRIPT = Path.of("src/main/resources/static/js/header-menu.js");
 
     @Test
     void videoServerIsDeployedAtRootByDefault() throws IOException {
@@ -52,4 +54,19 @@ class ContextPathUrlTests {
         assertFalse(uploadScript.contains("window.location.href = \"/videos"));
         assertTrue(uploadScript.contains("form.action"));
     }
+
+	@Test
+	void desktopAndMobileAppLinksUseSameWebViewNavigation() throws IOException {
+		String header = Files.readString(HEADER);
+		String navigationScript = Files.readString(APP_NAVIGATION_SCRIPT);
+		String menuScript = Files.readString(HEADER_MENU_SCRIPT);
+
+		assertTrue(header.contains("class=\"app-switch-link\" data-app-target=\"image\""));
+		assertTrue(header.contains("<a data-app-target=\"image\""));
+		assertTrue(navigationScript.contains("querySelectorAll('[data-app-target]')"));
+		assertTrue(navigationScript.contains("link.href = target.href"));
+		assertFalse(navigationScript.contains("window.open"));
+		assertFalse(navigationScript.contains("preventDefault"));
+		assertFalse(menuScript.contains("preventDefault"));
+	}
 }
