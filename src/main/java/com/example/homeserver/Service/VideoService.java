@@ -68,7 +68,7 @@ public class VideoService {
 		if ("oldest".equals(sort)) {
 
 			return videoRepository
-					.findByFolderIsNullOrderByCreatedAtAsc();
+					.findByFolderIsNullOrderByCreatedAtAscIdAsc();
 
 		}
 
@@ -89,7 +89,7 @@ public class VideoService {
 		// デフォルト：新しい順
 
 		return videoRepository
-				.findByFolderIsNullOrderByCreatedAtDesc();
+				.findByFolderIsNullOrderByCreatedAtDescIdDesc();
 	}
 
 	// 動画保存
@@ -656,7 +656,7 @@ public class VideoService {
 		if ("oldest".equals(sort)) {
 
 			return videoRepository
-					.findByFolderIdOrderByCreatedAtAsc(folderId);
+					.findByFolderIdOrderByCreatedAtAscIdAsc(folderId);
 
 		}
 
@@ -677,37 +677,17 @@ public class VideoService {
 		// デフォルト：新しい順
 
 		return videoRepository
-				.findByFolderIdOrderByCreatedAtDesc(folderId);
+				.findByFolderIdOrderByCreatedAtDescIdDesc(folderId);
 	}
 
 	public List<Video> searchVideos(
 			String keyword,
 			String sort) {
 
-		Sort sortOption;
-
-		if ("oldest".equals(sort)) {
-
-			sortOption = Sort.by("createdAt").ascending();
-
-		} else if ("nameAsc".equals(sort)) {
-
-			sortOption = Sort.by("title").ascending();
-
-		} else if ("nameDesc".equals(sort)) {
-
-			sortOption = Sort.by("title").descending();
-
-		} else {
-
-			// デフォルト：新しい順
-			sortOption = Sort.by("createdAt").descending();
-		}
-
 		return videoRepository
 				.searchByTitleOrTag(
 						keyword,
-						sortOption);
+						videoSort(sort));
 	}
 
 	public List<Video> searchVideosByFolder(
@@ -715,31 +695,11 @@ public class VideoService {
 			String keyword,
 			String sort) {
 
-		Sort sortOption;
-
-		if ("oldest".equals(sort)) {
-
-			sortOption = Sort.by("createdAt").ascending();
-
-		} else if ("nameAsc".equals(sort)) {
-
-			sortOption = Sort.by("title").ascending();
-
-		} else if ("nameDesc".equals(sort)) {
-
-			sortOption = Sort.by("title").descending();
-
-		} else {
-
-			// デフォルト：新しい順
-			sortOption = Sort.by("createdAt").descending();
-		}
-
 		return videoRepository
 				.searchByFolderAndTitleOrTag(
 						folderId,
 						keyword,
-						sortOption);
+						videoSort(sort));
 	}
 	
 	// =========================
@@ -772,33 +732,9 @@ public class VideoService {
 	        String tag,
 	        String sort) {
 
-	    Sort sortOption;
-
-	    if ("oldest".equals(sort)) {
-
-	        sortOption =
-	                Sort.by("createdAt").ascending();
-
-	    } else if ("nameAsc".equals(sort)) {
-
-	        sortOption =
-	                Sort.by("title").ascending();
-
-	    } else if ("nameDesc".equals(sort)) {
-
-	        sortOption =
-	                Sort.by("title").descending();
-
-	    } else {
-
-	        sortOption =
-	                Sort.by("createdAt").descending();
-
-	    }
-
 	    return videoRepository.findByTag(
 	            tag,
-	            sortOption
+	            videoSort(sort)
 	    );
 	}
 
@@ -814,10 +750,10 @@ public class VideoService {
 
 	private Sort videoSort(String sort) {
 		return switch (sort) {
-			case "oldest" -> Sort.by("createdAt").ascending();
-			case "nameAsc" -> Sort.by("title").ascending();
-			case "nameDesc" -> Sort.by("title").descending();
-			default -> Sort.by("createdAt").descending();
+			case "oldest" -> Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id"));
+			case "nameAsc" -> Sort.by(Sort.Order.asc("title"), Sort.Order.asc("id"));
+			case "nameDesc" -> Sort.by(Sort.Order.desc("title"), Sort.Order.desc("id"));
+			default -> Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 		};
 	}
 

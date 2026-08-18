@@ -21,7 +21,7 @@ class VideoFolderTagFilterTests {
         VideoService service = new VideoService();
         ReflectionTestUtils.setField(service, "videoRepository", repository);
         Video video = new Video();
-        Sort expectedSort = Sort.by("title").ascending();
+		Sort expectedSort = Sort.by(Sort.Order.asc("title"), Sort.Order.asc("id"));
         when(repository.findByFolderAndTag(42L, "日常", expectedSort)).thenReturn(List.of(video));
 
         List<Video> result = service.getVideosByFolderAndTag(42L, "日常", "nameAsc");

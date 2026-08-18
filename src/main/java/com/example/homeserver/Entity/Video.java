@@ -1,6 +1,7 @@
 package com.example.homeserver.Entity;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -13,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import lombok.Getter;
@@ -23,6 +25,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Video {
+	private static final ZoneId HOME_SERVER_ZONE = ZoneId.of("Asia/Tokyo");
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,6 +62,13 @@ public class Video {
 	private Set<Tag> tags = new HashSet<>();
 
 	public Video() {
+	}
+
+	@PrePersist
+	void ensureCreatedAt() {
+		if (createdAt == null) {
+			createdAt = LocalDateTime.now(HOME_SERVER_ZONE);
+		}
 	}
 
 	public Video(

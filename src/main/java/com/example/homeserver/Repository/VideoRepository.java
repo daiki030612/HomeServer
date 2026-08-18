@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -78,9 +79,9 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 	
 	List<Video> findByFolderIsNull();
 	
-	List<Video> findByFolderIdOrderByCreatedAtDesc(Long folderId);
+	List<Video> findByFolderIdOrderByCreatedAtDescIdDesc(Long folderId);
 
-	List<Video> findByFolderIdOrderByCreatedAtAsc(Long folderId);
+	List<Video> findByFolderIdOrderByCreatedAtAscIdAsc(Long folderId);
 
 	List<Video> findByFolderIdOrderByTitleAsc(Long folderId);
 
@@ -88,14 +89,20 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 
 
 	// メインページ
-	List<Video> findByFolderIsNullOrderByCreatedAtDesc();
+	List<Video> findByFolderIsNullOrderByCreatedAtDescIdDesc();
 
-	List<Video> findByFolderIsNullOrderByCreatedAtAsc();
+	List<Video> findByFolderIsNullOrderByCreatedAtAscIdAsc();
 
 	List<Video> findByFolderIsNullOrderByTitleAsc();
 
 	List<Video> findByFolderIsNullOrderByTitleDesc();
 	
 	boolean existsByFolder(Folder folder);
+
+	long countByCreatedAtIsNull();
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("UPDATE Video v SET v.createdAt = :createdAt WHERE v.createdAt IS NULL")
+	int backfillMissingCreatedAt(@Param("createdAt") java.time.LocalDateTime createdAt);
 
 }
