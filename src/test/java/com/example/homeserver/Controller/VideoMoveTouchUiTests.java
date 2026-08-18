@@ -67,11 +67,28 @@ class VideoMoveTouchUiTests {
         assertTrue(html.contains("id=\"videoMenuBackdrop\""));
         assertTrue(script.contains("document.body.appendChild(menu)"));
         assertTrue(script.contains("menu._videoMenuOwner.appendChild(menu)"));
+		assertTrue(script.contains("function guardMenuInteraction(menu)"));
+		assertTrue(script.contains("form.addEventListener(\"submit\""));
         assertTrue(script.contains("!event.target.closest(\".menu-dropdown\")"));
         assertTrue(css.contains(".menu-dropdown.touch-action-sheet"));
         assertTrue(css.contains("position: fixed"));
         assertTrue(css.contains("min-height: 50px"));
+		assertTrue(css.contains("pointer-events: auto"));
+		assertTrue(html.contains("onsubmit=\"event.stopPropagation(); return confirm('この動画を削除しますか？');\""));
     }
+
+	@Test
+	void folderMenuUsesSameTouchSafeActionSheet() throws IOException {
+		String html = Files.readString(LIST);
+		String script = Files.readString(SCRIPT);
+		String css = Files.readString(STYLE);
+
+		assertTrue(script.contains("menu._folderMenuOwner = button.parentElement"));
+		assertTrue(script.contains("menu._folderMenuOwner.appendChild(menu)"));
+		assertTrue(html.contains("class=\"action-sheet-cancel\" onclick=\"closeFolderMenus()\""));
+		assertTrue(html.contains("return confirm('このフォルダーを削除しますか？')"));
+		assertTrue(css.contains(".folder-menu-dropdown.touch-action-sheet"));
+	}
 
     @Test
     void editFormIsValidAndSaveButtonRemainsInsideIt() throws IOException {

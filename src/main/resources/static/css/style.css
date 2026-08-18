@@ -1922,23 +1922,26 @@ body {
 
 .video-menu-backdrop.show {
 	display: block;
+	pointer-events: auto;
 }
 
 @media (hover: none) and (pointer: coarse) {
 	.video-menu-backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 2998;
+		z-index: 10000;
 		background: rgba(0, 0, 0, .48);
+		pointer-events: none;
 	}
 
-	.menu-dropdown.touch-action-sheet {
+	.menu-dropdown.touch-action-sheet,
+	.folder-menu-dropdown.touch-action-sheet {
 		position: fixed;
-		top: auto;
+		top: auto !important;
 		right: max(10px, env(safe-area-inset-right));
 		bottom: max(10px, env(safe-area-inset-bottom));
-		left: max(10px, env(safe-area-inset-left));
-		z-index: 2999;
+		left: max(10px, env(safe-area-inset-left)) !important;
+		z-index: 10001;
 		display: block;
 		width: auto;
 		min-width: 0;
@@ -1946,7 +1949,13 @@ body {
 		padding: 8px;
 		overflow-y: auto;
 		border-radius: 18px;
+		isolation: isolate;
+		pointer-events: auto;
+		transform: translateZ(0);
+		-webkit-transform: translateZ(0);
 	}
+
+	.touch-action-sheet * { pointer-events: auto; }
 
 	.touch-action-sheet .action-sheet-title {
 		display: block;

@@ -146,6 +146,7 @@
 
 				<div class="folder-menu-dropdown" role="menu" th:id="|folder-menu-${folder.id}|"
 					th:aria-labelledby="|folder-menu-button-${folder.id}|">
+					<div class="action-sheet-title" aria-hidden="true" th:text="${folder.name}"></div>
 
 					<a href="#" th:data-id="${folder.id}" th:data-name="${folder.name}"
 						onclick="openRenameFolderModal(event, this)" role="menuitem">
@@ -156,9 +157,10 @@
 
 
 					<form th:action="@{/folders/delete/{id}(id=${folder.id})}" method="post"
-						onsubmit="return confirm('このフォルダーを削除しますか？');">
+						onsubmit="event.stopPropagation(); return confirm('このフォルダーを削除しますか？');">
 						<button type="submit" class="menu-action-button danger-action" role="menuitem">削除</button>
 					</form>
+					<button type="button" class="action-sheet-cancel" onclick="closeFolderMenus()">キャンセル</button>
 
 				</div>
 
@@ -237,7 +239,7 @@
 
 							<!-- 動画削除 -->
 							<form class="video-delete-form" th:action="@{/videos/delete/{id}(id=${video.id})}" method="post"
-								onsubmit="return confirm('この動画を削除しますか？');">
+								onsubmit="event.stopPropagation(); return confirm('この動画を削除しますか？');">
 								<button type="submit" class="menu-action-button danger-action">削除</button>
 							</form>
 
@@ -378,7 +380,7 @@
 
 		</div>
 
-		<div id="videoMenuBackdrop" class="video-menu-backdrop" onclick="closeVideoMenus()" aria-hidden="true"></div>
+		<div id="videoMenuBackdrop" class="video-menu-backdrop" onclick="closeAllMediaMenus()" aria-hidden="true"></div>
 
 		<!-- =========================
 		     フォルダ作成モーダル

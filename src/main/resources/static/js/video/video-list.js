@@ -11,6 +11,7 @@ function toggleMenu(event, button) {
 
     const owner = button.parentElement;
     const menu = owner.querySelector(".menu-dropdown");
+	guardMenuInteraction(menu);
     const willOpen = !menu.classList.contains("show");
 
     closeFolderMenus();
@@ -33,6 +34,17 @@ function toggleMenu(event, button) {
     }
 
     menu.classList.add("show");
+}
+
+function guardMenuInteraction(menu) {
+    if (!menu || menu.dataset.interactionGuard === "true") return;
+    menu.dataset.interactionGuard = "true";
+    ["pointerdown", "click"].forEach(function(type) {
+        menu.addEventListener(type, function(event) { event.stopPropagation(); });
+    });
+    menu.querySelectorAll("form").forEach(function(form) {
+        form.addEventListener("submit", function(event) { event.stopPropagation(); });
+    });
 }
 
 function closeVideoMenu(menu) {
@@ -635,23 +647,29 @@ function toggleFolderMenu(event, button) {
 
 
     const menu = button.parentElement.querySelector(".folder-menu-dropdown");
+	guardMenuInteraction(menu);
     const willOpen = !menu.classList.contains("show");
 
     closeFolderMenus(menu);
-    document.querySelectorAll(".menu-dropdown.show").forEach(function(otherMenu) {
-        otherMenu.classList.remove("show");
-    });
+	closeVideoMenus();
 
     if (!willOpen) {
-        button.setAttribute("aria-expanded", "false");
+		closeFolderMenu(menu);
         return;
     }
 
     menu.classList.remove("open-upward");
+	const touchMenu = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+	if (touchMenu) {
+		menu._folderMenuOwner = button.parentElement;
+		menu.classList.add("touch-action-sheet");
+		document.body.appendChild(menu);
+		document.getElementById("videoMenuBackdrop")?.classList.add("show");
+	}
     menu.classList.add("show");
     button.setAttribute("aria-expanded", "true");
 
-    if (menu.getBoundingClientRect().bottom > window.innerHeight - 12) {
+	if (!touchMenu && menu.getBoundingClientRect().bottom > window.innerHeight - 12) {
         menu.classList.add("open-upward");
     }
 
@@ -683,10 +701,26 @@ function selectMoveDestination(button) {
 function closeFolderMenus(exceptMenu) {
     document.querySelectorAll(".folder-menu-dropdown.show").forEach(function(menu) {
         if (menu === exceptMenu) return;
-        menu.classList.remove("show", "open-upward");
-        const button = menu.parentElement.querySelector(".folder-menu-button");
-        if (button) button.setAttribute("aria-expanded", "false");
+		closeFolderMenu(menu);
     });
+	if (!exceptMenu) document.getElementById("videoMenuBackdrop")?.classList.remove("show");
+}
+
+function closeFolderMenu(menu) {
+	if (!menu) return;
+	menu.classList.remove("show", "open-upward", "touch-action-sheet");
+	if (menu._folderMenuOwner) {
+		menu._folderMenuOwner.appendChild(menu);
+		menu._folderMenuOwner = null;
+	}
+	const button = menu.parentElement?.querySelector(".folder-menu-button");
+	if (button) button.setAttribute("aria-expanded", "false");
+	document.getElementById("videoMenuBackdrop")?.classList.remove("show");
+}
+
+function closeAllMediaMenus() {
+	closeVideoMenus();
+	closeFolderMenus();
 }
 
 
