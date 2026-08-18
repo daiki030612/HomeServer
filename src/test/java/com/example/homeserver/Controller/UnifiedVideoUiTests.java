@@ -120,6 +120,7 @@ class UnifiedVideoUiTests {
 				"class=\"filter-submit\">検索");
 		assertThat(css).contains(
 				"grid-template-columns: minmax(180px, 1fr) 160px 160px auto",
+				"display: block",
 				"min-height: 43px",
 				"grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)");
 	}

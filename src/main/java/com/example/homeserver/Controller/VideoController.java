@@ -80,7 +80,11 @@ public class VideoController {
 
 		List<Video> videos;
 
-		if (tag != null && !tag.isBlank()) {
+		if (tag != null && !tag.isBlank() && keyword != null && !keyword.isBlank()) {
+
+			videos = videoService.searchVideosByTag(keyword, tag, sort);
+
+		} else if (tag != null && !tag.isBlank()) {
 
 		    videos = videoService.getVideosByTag(tag, sort);
 
@@ -152,7 +156,11 @@ public class VideoController {
 
 	    List<Video> videos;
 
-	    if (tag != null && !tag.isBlank()) {
+	    if (tag != null && !tag.isBlank() && keyword != null && !keyword.isBlank()) {
+
+	        videos = videoService.searchVideosByFolderAndTag(id, keyword, tag, sort);
+
+	    } else if (tag != null && !tag.isBlank()) {
 
 	        videos = videoService.getVideosByFolderAndTag(id, tag, sort);
 

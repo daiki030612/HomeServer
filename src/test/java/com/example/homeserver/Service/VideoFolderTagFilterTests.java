@@ -29,4 +29,28 @@ class VideoFolderTagFilterTests {
         assertThat(result).containsExactly(video);
         verify(repository).findByFolderAndTag(42L, "日常", expectedSort);
     }
+
+	@Test
+	void combinesKeywordTagAndSortAtLibraryRoot() {
+		VideoRepository repository = mock(VideoRepository.class);
+		VideoService service = new VideoService();
+		ReflectionTestUtils.setField(service, "videoRepository", repository);
+		Sort expectedSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+
+		service.searchVideosByTag("旅行", "日常", "newest");
+
+		verify(repository).searchByTagAndTitleOrTag("日常", "旅行", expectedSort);
+	}
+
+	@Test
+	void combinesFolderKeywordTagAndSort() {
+		VideoRepository repository = mock(VideoRepository.class);
+		VideoService service = new VideoService();
+		ReflectionTestUtils.setField(service, "videoRepository", repository);
+		Sort expectedSort = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id"));
+
+		service.searchVideosByFolderAndTag(42L, "旅行", "日常", "oldest");
+
+		verify(repository).searchByFolderAndTagAndTitleOrTag(42L, "日常", "旅行", expectedSort);
+	}
 }

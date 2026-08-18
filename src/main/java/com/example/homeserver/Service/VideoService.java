@@ -701,6 +701,22 @@ public class VideoService {
 						keyword,
 						videoSort(sort));
 	}
+
+	public List<Video> searchVideosByTag(String keyword, String tag, String sort) {
+		return videoRepository.searchByTagAndTitleOrTag(tag, keyword, videoSort(sort));
+	}
+
+	public List<Video> searchVideosByFolderAndTag(
+			Long folderId,
+			String keyword,
+			String tag,
+			String sort) {
+		return videoRepository.searchByFolderAndTagAndTitleOrTag(
+				folderId,
+				tag,
+				keyword,
+				videoSort(sort));
+	}
 	
 	// =========================
 	// 関連動画取得

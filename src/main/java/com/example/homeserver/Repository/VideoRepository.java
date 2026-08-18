@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -41,6 +41,40 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 	        @Param("folderId") Long folderId,
 	        @Param("keyword") String keyword,
 	        Sort sort);
+
+	@Query("""
+		SELECT DISTINCT v
+		FROM Video v
+		JOIN v.tags selectedTag
+		LEFT JOIN v.tags searchableTag
+		WHERE selectedTag.name = :tag
+		  AND (
+		      LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+		      OR LOWER(searchableTag.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+		  )
+	""")
+	List<Video> searchByTagAndTitleOrTag(
+			@Param("tag") String tag,
+			@Param("keyword") String keyword,
+			Sort sort);
+
+	@Query("""
+		SELECT DISTINCT v
+		FROM Video v
+		JOIN v.tags selectedTag
+		LEFT JOIN v.tags searchableTag
+		WHERE v.folder.id = :folderId
+		  AND selectedTag.name = :tag
+		  AND (
+		      LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+		      OR LOWER(searchableTag.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+		  )
+	""")
+	List<Video> searchByFolderAndTagAndTitleOrTag(
+			@Param("folderId") Long folderId,
+			@Param("tag") String tag,
+			@Param("keyword") String keyword,
+			Sort sort);
 
 	@Query("""
 		    SELECT DISTINCT v
