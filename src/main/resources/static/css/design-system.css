@@ -1,0 +1,85 @@
+:root {
+	--bg: #0d0f14;
+	--surface: #171a22;
+	--surface-raised: #20232d;
+	--line: #282c38;
+	--text: #f4f5f7;
+	--muted: #9ca3b2;
+	--accent: #8b5cf6;
+	--accent-strong: #6d3ce8;
+	--danger: #ff6b63;
+	--success: #4ade80;
+	--radius-card: 12px;
+	--radius-panel: 18px;
+	--shadow-float: 0 22px 60px rgba(0, 0, 0, .45);
+}
+
+html {
+	color-scheme: dark;
+	background: var(--bg);
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font-family: system-ui, -apple-system, "Noto Sans JP", sans-serif;
+}
+
+button,
+input,
+select {
+	font: inherit;
+}
+
+:focus-visible {
+	outline: 3px solid rgba(139, 92, 246, .55);
+	outline-offset: 3px;
+}
+
+.eyebrow {
+	color: #a78bfa;
+	font-size: 12px;
+	font-weight: 800;
+	letter-spacing: .18em;
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.login-page {
+	background: var(--bg);
+}
+
+.login-container {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-panel);
+	box-shadow: var(--shadow-float);
+}
+
+.login-description,
+.form-group label {
+	color: var(--muted);
+}
+
+.form-group input {
+	background: #0f1117;
+	border-color: #353a48;
+	color: var(--text);
+}
+
+.login-button {
+	background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+	border-radius: 10px;
+}
+
+.error-message {
+	background: #7f1d1d;
+	color: #fecaca;
+}
+
+.logout-message {
+	background: #14532d;
+	color: #bbf7d0;
+}

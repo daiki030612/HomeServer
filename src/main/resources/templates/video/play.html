@@ -5,6 +5,8 @@
 	<meta charset="UTF-8">
 	<title th:text="${video.title}">動画再生</title>
 	<link rel="stylesheet" th:href="@{/css/style.css}">
+	<link rel="stylesheet" th:href="@{/css/design-system.css}">
+	<link rel="stylesheet" th:href="@{/css/play.css}">
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 </head>
 
@@ -13,6 +15,7 @@
 	<div class="ambient-glow" aria-hidden="true"></div>
 
 	<div class="container">
+		<a class="play-back" th:href="@{/videos}">← ライブラリ</a>
 
 
 		<!-- =========================
@@ -30,7 +33,7 @@
 
 			<!-- 中央再生ボタン -->
 
-			<button id="centerPlayButton" class="center-play-button" type="button">
+			<button id="centerPlayButton" class="center-play-button" type="button" aria-label="再生">
 
 				▶
 
@@ -54,14 +57,14 @@
 
 				<!-- シークバー -->
 
-				<input id="seekBar" class="seek-bar" type="range" min="0" max="10000" value="0" step="1">
+				<input id="seekBar" class="seek-bar" type="range" min="0" max="10000" value="0" step="1" aria-label="再生位置">
 
 
 				<div class="control-bottom">
 
 					<!-- 再生 / 一時停止 -->
 
-					<button id="playButton" class="control-button" type="button">
+					<button id="playButton" class="control-button" type="button" aria-label="再生・一時停止">
 
 						▶
 
@@ -85,21 +88,21 @@
 
 					<div class="volume-control">
 
-						<button id="muteButton" class="control-button volume-button" type="button">
+						<button id="muteButton" class="control-button volume-button" type="button" aria-label="ミュート">
 
 							🔊
 
 						</button>
 
 
-						<input id="volumeBar" class="volume-bar" type="range" min="0" max="100" value="100" step="1">
+						<input id="volumeBar" class="volume-bar" type="range" min="0" max="100" value="100" step="1" aria-label="音量">
 
 					</div>
 
 
 					<!-- 全画面 -->
 
-					<button id="fullscreenButton" class="control-button" type="button">
+					<button id="fullscreenButton" class="control-button" type="button" aria-label="全画面表示">
 
 						⛶
 
@@ -172,11 +175,6 @@
 
 	</div>
 
-
-
-	<!-- CSS -->
-
-	<link rel="stylesheet" th:href="@{/css/play.css}">
 
 
 	<!-- JavaScript -->

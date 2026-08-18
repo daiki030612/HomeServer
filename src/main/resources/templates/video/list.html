@@ -5,6 +5,8 @@
 	<meta charset="UTF-8">
 	<title>Home Server</title>
 	<link rel="stylesheet" th:href="@{/css/style.css}">
+	<link rel="stylesheet" th:href="@{/css/design-system.css}">
+	<link rel="stylesheet" th:href="@{/css/video-library.css}">
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 	<!-- CSRF Token -->
 	<meta name="_csrf" th:content="${_csrf.token}"/>
@@ -72,15 +74,15 @@
 
 
 
-		<form class="header-search" method="get">
+		<form class="header-search" method="get" aria-label="動画を検索・並べ替え">
 
-			<input type="text" name="keyword" placeholder="動画を検索..." class="search-input" th:value="${keyword}">
+			<input type="search" name="keyword" placeholder="動画を検索..." class="search-input" th:value="${keyword}" aria-label="動画を検索">
 
 			<button type="submit" class="search-button" aria-label="検索">
 				⌕
 			</button>
 
-			<select name="sort" onchange="this.form.submit()">
+			<select name="sort" onchange="this.form.submit()" aria-label="並び順">
 
 				<option value="newest" th:selected="${sort == 'newest'}">
 					新しい順
@@ -119,6 +121,10 @@
 
 
 		<!-- フォルダ一覧 -->
+		<div class="section-heading" th:if="${!#lists.isEmpty(folders)}">
+			<h2>フォルダ</h2>
+			<span th:text="|${#lists.size(folders)}件|">0件</span>
+		</div>
 		<div class="folder-grid">
 
 			<div class="folder-card" th:each="folder : ${folders}" th:data-id="${folder.id}"
@@ -170,6 +176,10 @@
 
 
 		<!-- 動画一覧 -->
+		<div class="section-heading" th:if="${!#lists.isEmpty(videos)}">
+			<h2>動画</h2>
+			<span th:text="|${#lists.size(videos)}件|">0件</span>
+		</div>
 		<div class="video-grid">
 
 			<div class="video-container">
@@ -191,6 +201,7 @@
 						<div class="video-card-body">
 							<h2 class="video-card-title" th:text="${video.title}">動画タイトル</h2>
 							<div class="video-card-meta">
+								<span class="media-kind">動画</span>
 								<time th:if="${video.createdAt != null}"
 									th:text="${#temporals.format(video.createdAt, 'yyyy/MM/dd')}">2026/01/01</time>
 								<span th:each="tag, stat : ${video.tags}" th:if="${stat.index < 2}"
@@ -204,6 +215,8 @@
 					<div class="video-menu">
 
 						<button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+
+							<span class="visually-hidden">動画の操作メニュー</span>
 
 							<span class="pc-menu">…</span>
 							<span class="sp-menu">⋮</span>
@@ -253,6 +266,10 @@
 
 			</div>
 
+		</div>
+		<div class="library-empty" th:if="${#lists.isEmpty(folders) and #lists.isEmpty(videos)}">
+			<h2>ライブラリは空です</h2>
+			<p>動画をアップロードするか、新しいフォルダを作成してください。</p>
 		</div>
 
 
@@ -379,7 +396,6 @@
 			</div>
 
 		</div>
-
 		<div id="videoMenuBackdrop" class="video-menu-backdrop" onclick="closeAllMediaMenus()" aria-hidden="true"></div>
 
 		<!-- =========================
