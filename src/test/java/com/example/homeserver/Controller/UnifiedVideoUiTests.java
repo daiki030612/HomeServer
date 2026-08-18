@@ -35,9 +35,14 @@ class UnifiedVideoUiTests {
         String css = Files.readString(CSS.resolve("video-library.css"));
 
         assertThat(html).contains(
+				"<p class=\"eyebrow\">LIBRARY</p>",
+				"'動画一覧'",
                 "class=\"section-heading\"",
                 "class=\"media-kind\">動画",
+				"class=\"video-card-tags\"",
+				"class=\"video-tag-chip\"",
                 "class=\"library-empty\"");
+		assertThat(html).doesNotContain("PRIVATE MEDIA LIBRARY", "大切な映像を");
         assertThat(css).contains(
                 ".folder-card,",
                 ".video-card",
@@ -73,9 +78,49 @@ class UnifiedVideoUiTests {
                 "class=\"upload-card url-import-card\"",
                 "class=\"upload-card url-job-history\"");
         assertThat(css).contains(
+				".upload-page{display:grid;gap:20px;width:100%;max-width:820px;min-width:0",
+				".upload-card{width:100%;max-width:100%;min-width:0",
+				".upload-card form,.file-area,.url-import-progress,.url-job-list,.url-job{width:100%;max-width:100%;min-width:0}",
+				"overflow-wrap:anywhere",
                 ".url-job-state[data-state=\"COMPLETED\"]",
                 ".url-job-cancel",
                 "max-height:520px",
                 "@media(max-width:600px)");
+		assertThat(css).doesNotContain("overflow-x:hidden");
     }
+
+	@Test
+	void mobileHeaderPlacesBrandStorageAndMenuInOneRow() throws IOException {
+		String header = Files.readString(TEMPLATES.resolve("fragments/header.html"));
+		String css = Files.readString(CSS.resolve("unified-header.css"));
+
+		assertThat(header).contains(
+				"<span>VideoServer</span>",
+				"class=\"mobile-app-switcher\"",
+				"URLから追加",
+				"class=\"storage-status unified-storage\"");
+		assertThat(css).contains(
+				"grid-template-columns:minmax(0,1fr) auto 44px",
+				".unified-header .hamburger-button{display:grid;grid-column:3",
+				".unified-header .unified-storage{grid-column:2;grid-row:1",
+				"@media(max-width:350px)");
+	}
+
+	@Test
+	void searchTagAndSortMatchGalleryFilterStructure() throws IOException {
+		String html = Files.readString(TEMPLATES.resolve("video/list.html"));
+		String css = Files.readString(CSS.resolve("video-library.css"));
+
+		assertThat(html).contains(
+				"class=\"gallery-filters video-filters\"",
+				"name=\"keyword\"",
+				"name=\"tag\"",
+				"filterTag.name == selectedTag",
+				"name=\"sort\"",
+				"class=\"filter-submit\">検索");
+		assertThat(css).contains(
+				"grid-template-columns: minmax(180px, 1fr) 160px 160px auto",
+				"min-height: 43px",
+				"grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)");
+	}
 }

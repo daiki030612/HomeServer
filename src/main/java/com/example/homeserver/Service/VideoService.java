@@ -802,4 +802,23 @@ public class VideoService {
 	    );
 	}
 
+	public List<Video> getVideosByFolderAndTag(
+			Long folderId,
+			String tag,
+			String sort) {
+		return videoRepository.findByFolderAndTag(
+				folderId,
+				tag,
+				videoSort(sort));
+	}
+
+	private Sort videoSort(String sort) {
+		return switch (sort) {
+			case "oldest" -> Sort.by("createdAt").ascending();
+			case "nameAsc" -> Sort.by("title").ascending();
+			case "nameDesc" -> Sort.by("title").descending();
+			default -> Sort.by("createdAt").descending();
+		};
+	}
+
 }

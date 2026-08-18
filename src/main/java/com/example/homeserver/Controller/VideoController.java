@@ -76,6 +76,7 @@ public class VideoController {
 		
 		model.addAttribute("keyword", keyword);
 		model.addAttribute("sort", sort);
+		model.addAttribute("selectedTag", tag);
 
 		List<Video> videos;
 
@@ -133,6 +134,7 @@ public class VideoController {
 	public String openFolder(
 	        @PathVariable Long id,
 	        @RequestParam(required = false) String keyword,
+	        @RequestParam(required = false) String tag,
 	        @RequestParam(defaultValue = "newest") String sort,
 	        Model model) {
 
@@ -150,7 +152,11 @@ public class VideoController {
 
 	    List<Video> videos;
 
-	    if (keyword == null || keyword.isBlank()) {
+	    if (tag != null && !tag.isBlank()) {
+
+	        videos = videoService.getVideosByFolderAndTag(id, tag, sort);
+
+	    } else if (keyword == null || keyword.isBlank()) {
 
 	        // 検索なし
 	        videos = videoService.getVideosByFolder(id, sort);
@@ -205,6 +211,11 @@ public class VideoController {
 	    model.addAttribute(
 	            "sort",
 	            sort
+	    );
+
+	    model.addAttribute(
+	            "selectedTag",
+	            tag
 	    );
 
 	    // 登録済みタグ

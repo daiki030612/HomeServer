@@ -14,6 +14,12 @@
 	--shadow-float: 0 22px 60px rgba(0, 0, 0, .45);
 }
 
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
 html {
 	color-scheme: dark;
 	background: var(--bg);

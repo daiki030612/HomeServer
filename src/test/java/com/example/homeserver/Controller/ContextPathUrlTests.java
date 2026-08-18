@@ -31,7 +31,7 @@ class ContextPathUrlTests {
         String testPage = Files.readString(TEST_PAGE);
 
         assertTrue(header.contains("th:href=\"@{/videos}\""));
-        assertTrue(header.contains("th:action=\"@{/videos}\""));
+		assertTrue(list.contains("class=\"gallery-filters video-filters\" method=\"get\""));
         assertFalse(header.contains("href=\"/videos\""));
         assertFalse(header.contains("action=\"/videos\""));
         assertTrue(list.contains("name=\"video-move-url\" th:content=\"@{/videos/move}\""));

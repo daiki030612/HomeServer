@@ -19,9 +19,8 @@
 
 	<div class="container">
 		<section class="library-hero">
-			<p class="eyebrow">PRIVATE MEDIA LIBRARY</p>
-			<h1 th:text="${currentFolder != null ? currentFolder.name : 'あなたのライブラリ'}">あなたのライブラリ</h1>
-			<p>大切な映像を、ひとつの美しい場所に。</p>
+			<p class="eyebrow">LIBRARY</p>
+			<h1 th:text="${currentFolder != null ? currentFolder.name : '動画一覧'}">動画一覧</h1>
 		</section>
 
 		<!-- =========================
@@ -74,15 +73,22 @@
 
 
 
-		<form class="header-search" method="get" aria-label="動画を検索・並べ替え">
-
-			<input type="search" name="keyword" placeholder="動画を検索..." class="search-input" th:value="${keyword}" aria-label="動画を検索">
-
-			<button type="submit" class="search-button" aria-label="検索">
-				⌕
-			</button>
-
-			<select name="sort" onchange="this.form.submit()" aria-label="並び順">
+		<form class="gallery-filters video-filters" method="get" aria-label="動画を検索・絞り込み">
+			<label>
+				検索
+				<input type="search" name="keyword" placeholder="動画タイトル・タグなど" class="search-input" th:value="${keyword}">
+			</label>
+			<label>
+				タグ
+				<select name="tag">
+					<option value="">すべて</option>
+					<option th:each="filterTag : ${tags}" th:value="${filterTag.name}" th:text="${filterTag.name}"
+						th:selected="${filterTag.name == selectedTag}">タグ</option>
+				</select>
+			</label>
+			<label>
+				並び順
+				<select name="sort">
 
 				<option value="newest" th:selected="${sort == 'newest'}">
 					新しい順
@@ -100,12 +106,10 @@
 					名前逆順
 				</option>
 
-			</select>
-
+				</select>
+			</label>
+			<button type="submit" class="filter-submit">検索</button>
 		</form>
-		<!-- ページタイトル -->
-		<div class="page-title">
-		</div>
 
 
 
@@ -204,8 +208,12 @@
 								<span class="media-kind">動画</span>
 								<time th:if="${video.createdAt != null}"
 									th:text="${#temporals.format(video.createdAt, 'yyyy/MM/dd')}">2026/01/01</time>
-								<span th:each="tag, stat : ${video.tags}" th:if="${stat.index < 2}"
-									th:text="'#' + ${tag.name}">#tag</span>
+							</div>
+							<div class="video-card-tags" th:if="${video.tags != null and !video.tags.isEmpty()}">
+								<span class="video-tag-chip" th:each="cardTag, stat : ${video.tags}" th:if="${stat.index < 2}"
+									th:text="'#' + ${cardTag.name}">#tag</span>
+								<span class="video-tag-more" th:if="${#sets.size(video.tags) > 2}"
+									th:text="${'+' + (#sets.size(video.tags) - 2)}">+1</span>
 							</div>
 						</div>
 					</a>

@@ -19,22 +19,15 @@
 		</div>
 		<nav class="nav unified-nav" aria-label="メインナビゲーション">
 			<div class="mobile-menu unified-menu" id="video-header-menu" data-header-menu>
+				<div class="mobile-app-switcher" aria-label="アプリ切り替え">
+					<a class="active" th:href="@{/videos}" aria-current="page">Video</a>
+					<a data-app-target="image"
+						th:attr="data-url=${imageAppUrl},data-port=${imageAppPort},data-path=${imageAppPath}">Image</a>
+				</div>
 
 				<a th:href="@{/videos}">
 					ライブラリ
 				</a>
-
-
-				<!-- 検索 -->
-				<form class="header-search" th:action="@{/videos}" method="get">
-
-					<input type="text" name="keyword" placeholder="動画を検索..." th:value="${keyword}">
-
-					<button type="submit">
-						🔍
-					</button>
-
-				</form>
 
 
 				<!-- 新しいフォルダ -->
@@ -48,6 +41,11 @@
 			            folderId=${currentFolder != null ? currentFolder.id : null}
 			        )}">
 						アップロード
+					</a>
+					<a th:href="@{/videos/upload(
+			            folderId=${currentFolder != null ? currentFolder.id : null}
+			        )} + '#url-import'">
+						URLから追加
 					</a>
 
 					<!-- ログアウト -->
