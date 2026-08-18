@@ -148,12 +148,13 @@ public class VideoService {
 		upload(file, folderId, ImportProgressListener.NOOP);
 	}
 
-	private void upload(MultipartFile file, Long folderId, ImportProgressListener progressListener) {
+	private Long upload(MultipartFile file, Long folderId, ImportProgressListener progressListener) {
 		Path savePath = null;
 		Path adoptedVideoPath = null;
 		Path thumbnailPath = null;
 		UploadArtifacts artifacts = null;
 		boolean databaseSaved = false;
+		Long savedVideoId = null;
 
 		try {
 				// ファイルが空でないかチェック
@@ -293,6 +294,7 @@ public class VideoService {
 
 			progressListener.onSaving();
 			videoRepository.saveAndFlush(video);
+			savedVideoId = video.getId();
 			databaseSaved = true;
 			artifacts.cleanupAfterSuccess(adoptedVideoPath, thumbnailPath);
 
@@ -311,7 +313,8 @@ public class VideoService {
 					throw unsupported;
 				}
 				throw new RuntimeException("アップロードに失敗しました。", e);
-			}
+		}
+		return savedVideoId;
 
 	}
 
@@ -319,7 +322,7 @@ public class VideoService {
 		importDownloadedVideo(downloadedFile, pageTitle, folderId, ImportProgressListener.NOOP);
 	}
 
-	public void importDownloadedVideo(Path downloadedFile, String pageTitle, Long folderId,
+	public Long importDownloadedVideo(Path downloadedFile, String pageTitle, Long folderId,
 			ImportProgressListener progressListener) {
 		if (downloadedFile == null || !Files.isRegularFile(downloadedFile)) {
 			throw new IllegalArgumentException("Downloaded video file is missing");
@@ -329,7 +332,7 @@ public class VideoService {
 				.replaceAll("\\s+", " ").trim();
 		if (safeTitle.isBlank()) safeTitle = "URL import";
 		if (safeTitle.length() > 180) safeTitle = safeTitle.substring(0, 180).trim();
-		upload(new PathMultipartFile(downloadedFile, safeTitle + ".mp4"), folderId,
+		return upload(new PathMultipartFile(downloadedFile, safeTitle + ".mp4"), folderId,
 				progressListener == null ? ImportProgressListener.NOOP : progressListener);
 	}
 

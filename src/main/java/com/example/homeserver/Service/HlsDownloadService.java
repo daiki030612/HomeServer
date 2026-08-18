@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.function.BooleanSupplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,13 +78,23 @@ public class HlsDownloadService {
 
 	public Path downloadAsMp4(URI playlistUri, Path workDirectory, VideoSourceRequestContext requestContext,
 			ProgressListener progressListener) {
+		return downloadAsMp4(playlistUri, workDirectory, requestContext, progressListener, () -> false);
+	}
+
+	public Path downloadAsMp4(URI playlistUri, Path workDirectory, VideoSourceRequestContext requestContext,
+			ProgressListener progressListener, BooleanSupplier cancellationRequested) {
 		long startedNanos = System.nanoTime();
 		try {
+			checkCancellation(cancellationRequested);
+			ProgressListener cancellableProgress = value -> {
+				checkCancellation(cancellationRequested);
+				(progressListener == null ? ProgressListener.NOOP : progressListener).onProgress(value);
+			};
 			long downloadDeadline = System.nanoTime() + ffmpegTimeout.toNanos();
 			SafeUrlHttpClient.SharedDownloadBudget budget = new SafeUrlHttpClient.SharedDownloadBudget(maxBytes);
 			Path mediaPlaylist = localizePlaylist(playlistUri, workDirectory, 0, startedNanos, downloadDeadline,
 					requestContext == null ? VideoSourceRequestContext.EMPTY : requestContext,
-					budget, progressListener == null ? ProgressListener.NOOP : progressListener);
+					budget, cancellableProgress);
 			Path output = workDirectory.resolve("downloaded.mp4");
 			List<String> command = List.of(
 					"ffmpeg", "-nostdin", "-hide_banner", "-y",
@@ -91,6 +102,7 @@ public class HlsDownloadService {
 					"-allowed_extensions", "ALL",
 					"-i", mediaPlaylist.toString(),
 					"-c", "copy", "-movflags", "+faststart", output.toString());
+			checkCancellation(cancellationRequested);
 			FfmpegProcessRunner.ProcessResult result = processRunner.run(command, ffmpegTimeout);
 			if (result.exitCode() != 0 || !Files.isRegularFile(output) || Files.size(output) == 0) {
 				logger.error("HLS FFmpeg failed: exitCode={}, stderrTail={} ",
@@ -110,6 +122,12 @@ public class HlsDownloadService {
 			logTerminalFailure(playlistUri, startedNanos, e);
 			throw new VideoUrlImportException(VideoUrlImportException.Reason.HLS_DOWNLOAD_FAILED,
 					"HLS動画を取得できませんでした。", e);
+		}
+	}
+
+	private void checkCancellation(BooleanSupplier requested) {
+		if (Thread.currentThread().isInterrupted() || (requested != null && requested.getAsBoolean())) {
+			throw new VideoUrlImportCancelledException();
 		}
 	}
 

@@ -280,12 +280,13 @@ public class VideoController {
 	@GetMapping("/upload")
 	public String uploadPage(
 			@RequestParam(value = "folderId", required = false) Long folderId,
-			Model model) {
+			Model model, Principal principal) {
 		if (folderId != null) {
 			Folder folder = folderService.getFolderById(folderId);
 			if (folder == null) return "redirect:/videos";
 			model.addAttribute("currentFolder", folder);
 		}
+		model.addAttribute("urlImportJobs", videoUrlImportJobService.recent(principal.getName()));
 
 		return "video/upload";
 
@@ -317,8 +318,8 @@ public class VideoController {
 			@RequestParam("url") String url,
 			@RequestParam(value = "folderId", required = false) Long folderId,
 			Principal principal) {
-		UUID jobId = videoUrlImportJobService.start(url, folderId, principal.getName());
-		return ResponseEntity.status(HttpStatus.ACCEPTED).body(new ImportJobStarted(jobId));
+		var result = videoUrlImportJobService.startOrReuse(url, folderId, principal.getName());
+		return ResponseEntity.status(HttpStatus.ACCEPTED).body(new ImportJobStarted(result.jobId(), result.reused()));
 	}
 
 	@GetMapping("/import-url/progress/{jobId}")
@@ -329,7 +330,19 @@ public class VideoController {
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
-	private record ImportJobStarted(UUID jobId) { }
+	@GetMapping("/import-url/jobs")
+	public List<VideoUrlImportJobService.JobProgress> importJobs(Principal principal) {
+		return videoUrlImportJobService.recent(principal.getName());
+	}
+
+	@PostMapping("/import-url/{jobId}/cancel")
+	public ResponseEntity<VideoUrlImportJobService.JobProgress> cancelImport(
+			@PathVariable UUID jobId, Principal principal) {
+		return videoUrlImportJobService.cancel(jobId, principal.getName())
+				.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	private record ImportJobStarted(UUID jobId, boolean reused) { }
 	// =========================
 	// 動画削除
 	// =========================

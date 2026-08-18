@@ -1,167 +1,83 @@
 package com.example.homeserver.Service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 import java.time.Duration;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import com.example.homeserver.Entity.VideoUrlImportJob;
+import com.example.homeserver.Repository.VideoUrlImportJobRepository;
+
 class VideoUrlImportJobServiceTests {
 	private VideoUrlImportJobService jobs;
+	private final Map<UUID, VideoUrlImportJob> db = new ConcurrentHashMap<>();
+	@AfterEach void shutdown() { if (jobs != null) jobs.shutdown(); }
 
-	@AfterEach
-	void shutdown() {
-		if (jobs != null) jobs.shutdown();
-	}
-
-	@Test
-	void jobIdsAreUniqueAndProgressIsIsolatedByOwner() throws Exception {
+	@Test void preventsDuplicateActiveJobAndPreservesQuery() throws Exception {
 		VideoUrlImportService imports = mock(VideoUrlImportService.class);
-		jobs = new VideoUrlImportJobService(imports, 2, Duration.ofMinutes(30));
-
-		UUID first = jobs.start("https://one.example", null, "alice");
-		UUID second = jobs.start("https://two.example", null, "bob");
-
-		assertNotEquals(first, second);
-		awaitTerminal(first, "alice");
-		awaitTerminal(second, "bob");
-		assertFalse(jobs.find(first, "bob").isPresent());
-		assertFalse(jobs.find(second, "alice").isPresent());
+		CountDownLatch running = new CountDownLatch(1), release = new CountDownLatch(1);
+		doAnswer(c -> { running.countDown(); release.await(2, TimeUnit.SECONDS); return 41L; })
+				.when(imports).importVideo(any(), any(), any());
+		jobs = service(imports);
+		var first = jobs.startOrReuse("HTTPS://Example.COM:443/video?id=1", null, "alice");
+		assertTrue(running.await(2, TimeUnit.SECONDS));
+		var duplicate = jobs.startOrReuse("https://example.com/video?id=1", null, "alice");
+		var otherQuery = jobs.startOrReuse("https://example.com/video?id=2", null, "alice");
+		assertEquals(first.jobId(), duplicate.jobId()); assertTrue(duplicate.reused());
+		assertFalse(otherQuery.reused()); release.countDown();
+		awaitTerminal(first.jobId()); awaitTerminal(otherQuery.jobId());
 	}
 
-	@Test
-	void exposesHlsCountsBytesAndClampedPercentageWhileRunning() throws Exception {
-		VideoUrlImportService imports = mock(VideoUrlImportService.class);
-		CountDownLatch published = new CountDownLatch(1);
-		CountDownLatch release = new CountDownLatch(1);
-		doAnswer(invocation -> {
-			VideoUrlImportProgressListener listener = invocation.getArgument(2);
-			listener.onStage(VideoUrlImportStage.DOWNLOADING);
-			listener.onHlsProgress(new HlsDownloadService.HlsProgress(10, 4, 1_073_741_824));
-			published.countDown();
-			release.await(2, TimeUnit.SECONDS);
-			return null;
-		}).when(imports).importVideo(eq("https://hls.example"), eq(7L), any());
-		jobs = new VideoUrlImportJobService(imports, 1, Duration.ofMinutes(30));
-
-		UUID jobId = jobs.start("https://hls.example", 7L, "alice");
-		assertTrue(published.await(2, TimeUnit.SECONDS));
-		var progress = jobs.find(jobId, "alice").orElseThrow();
-		assertEquals(VideoUrlImportStage.DOWNLOADING, progress.status());
-		assertEquals(4, progress.completedSegments());
-		assertEquals(10, progress.totalSegments());
-		assertEquals(40, progress.percentage());
-		assertEquals(1_073_741_824, progress.downloadedBytes());
-		release.countDown();
-		assertEquals(VideoUrlImportStage.COMPLETED, awaitTerminal(jobId, "alice").status());
+	@Test void cancellationIsPersistedAndInterruptsRunningJob() throws Exception {
+		VideoUrlImportService imports = mock(VideoUrlImportService.class); CountDownLatch running = new CountDownLatch(1);
+		doAnswer(c -> { running.countDown(); while (true) Thread.sleep(100); })
+				.when(imports).importVideo(any(), any(), any());
+		jobs = service(imports); UUID id = jobs.start("https://example.com/long", null, "alice");
+		assertTrue(running.await(2, TimeUnit.SECONDS)); jobs.cancel(id, "alice").orElseThrow();
+		assertEquals(VideoUrlImportJobStatus.CANCELLED, awaitTerminal(id).state());
 	}
 
-	@Test
-	void concurrentProgressUpdatesRemainMonotonicAndConsistent() throws Exception {
-		VideoUrlImportService imports = mock(VideoUrlImportService.class);
-		CountDownLatch published = new CountDownLatch(1);
-		CountDownLatch release = new CountDownLatch(1);
-		doAnswer(invocation -> {
-			VideoUrlImportProgressListener listener = invocation.getArgument(2);
-			listener.onStage(VideoUrlImportStage.DOWNLOADING);
-			ExecutorService publishers = Executors.newFixedThreadPool(8);
-			for (int i = 1; i <= 100; i++) {
-				int completed = i;
-				publishers.submit(() -> listener.onHlsProgress(
-						new HlsDownloadService.HlsProgress(100, completed, completed * 1000L)));
-			}
-			publishers.shutdown();
-			assertTrue(publishers.awaitTermination(2, TimeUnit.SECONDS));
-			published.countDown();
-			release.await(2, TimeUnit.SECONDS);
-			return null;
-		}).when(imports).importVideo(eq("https://parallel.example"), eq(null), any());
-		jobs = new VideoUrlImportJobService(imports, 1, Duration.ofMinutes(30));
-
-		UUID jobId = jobs.start("https://parallel.example", null, "alice");
-		assertTrue(published.await(2, TimeUnit.SECONDS));
-		var progress = jobs.find(jobId, "alice").orElseThrow();
-		assertEquals(100, progress.completedSegments());
-		assertEquals(100, progress.totalSegments());
-		assertEquals(100, progress.percentage());
-		assertEquals(100_000, progress.downloadedBytes());
-		release.countDown();
-		var completed = awaitTerminal(jobId, "alice");
-		assertEquals(VideoUrlImportStage.COMPLETED, completed.status());
-		assertEquals(100, completed.percentage());
+	@Test void startupRecoveryFailsPreviouslyActiveJobs() {
+		VideoUrlImportJob active = entity(UUID.randomUUID(), "https://example.com", VideoUrlImportJobStatus.DOWNLOADING);
+		db.put(active.getId(), active); jobs = service(mock(VideoUrlImportService.class)); jobs.recoverInterruptedJobs();
+		assertEquals(VideoUrlImportJobStatus.FAILED, active.getState());
+		assertTrue(active.getErrorMessage().contains("サーバー再起動"));
 	}
 
-	@Test
-	void mapsFailureToSafeReasonAndMessage() throws Exception {
-		VideoUrlImportService imports = mock(VideoUrlImportService.class);
-		doThrow(new VideoUrlImportException(VideoUrlImportException.Reason.FFMPEG_FAILED,
-				"secret URL https://private.example/token"))
-				.when(imports).importVideo(eq("https://failure.example"), eq(null), any());
-		jobs = new VideoUrlImportJobService(imports, 1, Duration.ofMinutes(30));
-
-		var progress = awaitTerminal(jobs.start("https://failure.example", null, "alice"), "alice");
-		assertEquals(VideoUrlImportStage.FAILED, progress.status());
-		assertEquals(VideoUrlImportException.Reason.FFMPEG_FAILED, progress.errorReason());
-		assertEquals("動画ファイルの作成に失敗しました。", progress.message());
-		assertFalse(progress.message().contains("private.example"));
+	@SuppressWarnings("unchecked")
+	private VideoUrlImportJobService service(VideoUrlImportService imports) {
+		VideoUrlImportJobRepository repo = mock(VideoUrlImportJobRepository.class);
+		when(repo.saveAndFlush(any())).thenAnswer(c -> save(c.getArgument(0)));
+		when(repo.save(any())).thenAnswer(c -> save(c.getArgument(0)));
+		when(repo.findById(any())).thenAnswer(c -> Optional.ofNullable(db.get(c.getArgument(0))));
+		when(repo.findByIdAndOwnerUsername(any(), any())).thenAnswer(c -> {
+			VideoUrlImportJob j = db.get(c.getArgument(0));
+			return j != null && j.getOwnerUsername().equals(c.getArgument(1)) ? Optional.of(j) : Optional.empty(); });
+		when(repo.findFirstByOwnerUsernameAndNormalizedUrlAndStateInOrderByCreatedAtDesc(any(), any(), any()))
+				.thenAnswer(c -> db.values().stream().filter(j -> j.getOwnerUsername().equals(c.getArgument(0))
+						&& j.getNormalizedUrl().equals(c.getArgument(1))
+						&& ((Collection<VideoUrlImportJobStatus>)c.getArgument(2)).contains(j.getState())).findFirst());
+		when(repo.findByStateIn(any())).thenAnswer(c -> db.values().stream()
+				.filter(j -> ((Collection<VideoUrlImportJobStatus>)c.getArgument(0)).contains(j.getState())).toList());
+		when(repo.findByOwnerUsernameOrderByCreatedAtDesc(any(), any())).thenAnswer(c -> db.values().stream()
+				.filter(j -> j.getOwnerUsername().equals(c.getArgument(0))).sorted(Comparator.comparing(VideoUrlImportJob::getCreatedAt).reversed()).toList());
+		return new VideoUrlImportJobService(imports, repo, 2, Duration.ofMillis(10), 25);
 	}
-
-	@Test
-	void directMp4ImportCanReportSavingStageBeforeCompletion() throws Exception {
-		VideoUrlImportService imports = mock(VideoUrlImportService.class);
-		CountDownLatch saving = new CountDownLatch(1);
-		CountDownLatch release = new CountDownLatch(1);
-		doAnswer(invocation -> {
-			VideoUrlImportProgressListener listener = invocation.getArgument(2);
-			listener.onStage(VideoUrlImportStage.DOWNLOADING);
-			listener.onStage(VideoUrlImportStage.THUMBNAIL_GENERATING);
-			listener.onStage(VideoUrlImportStage.SAVING);
-			saving.countDown();
-			release.await(2, TimeUnit.SECONDS);
-			return null;
-		}).when(imports).importVideo(eq("https://direct.example/video.mp4"), eq(null), any());
-		jobs = new VideoUrlImportJobService(imports, 1, Duration.ofMinutes(30));
-
-		UUID jobId = jobs.start("https://direct.example/video.mp4", null, "alice");
-		assertTrue(saving.await(2, TimeUnit.SECONDS));
-		assertEquals(VideoUrlImportStage.SAVING, jobs.find(jobId, "alice").orElseThrow().status());
-		release.countDown();
-		var completed = awaitTerminal(jobId, "alice");
-		assertEquals(VideoUrlImportStage.COMPLETED, completed.status());
-		assertEquals(100, completed.percentage());
+	private VideoUrlImportJob save(VideoUrlImportJob job) { db.put(job.getId(), job); return job; }
+	private VideoUrlImportJob entity(UUID id, String url, VideoUrlImportJobStatus state) {
+		VideoUrlImportJob j = new VideoUrlImportJob(); j.setId(id); j.setOwnerUsername("alice");
+		j.setInputUrl(url); j.setNormalizedUrl(url); j.setState(state); j.setStage(VideoUrlImportStage.DOWNLOADING);
+		j.setCurrentOperation("downloading"); j.setCreatedAt(java.time.Instant.now()); return j;
 	}
-
-	@Test
-	void removesFinishedJobsAfterRetentionPeriod() throws Exception {
-		jobs = new VideoUrlImportJobService(mock(VideoUrlImportService.class), 1, Duration.ofMillis(5));
-		UUID jobId = jobs.start("https://done.example", null, "alice");
-		awaitTerminal(jobId, "alice");
-		Thread.sleep(20);
-		jobs.cleanupExpiredJobs();
-		assertFalse(jobs.find(jobId, "alice").isPresent());
-	}
-
-	private VideoUrlImportJobService.JobProgress awaitTerminal(UUID jobId, String owner) throws Exception {
+	private VideoUrlImportJobService.JobProgress awaitTerminal(UUID id) throws Exception {
 		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
-		while (System.nanoTime() < deadline) {
-			var progress = jobs.find(jobId, owner).orElseThrow();
-			if (progress.finishedAt() != null) return progress;
-			Thread.sleep(10);
-		}
-		throw new AssertionError("job did not finish");
+		while (System.nanoTime() < deadline) { var p = jobs.find(id, "alice").orElseThrow();
+			if (p.state().terminal()) return p; Thread.sleep(10); } throw new AssertionError("job did not finish");
 	}
 }

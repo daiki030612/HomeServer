@@ -9,5 +9,6 @@ public enum VideoUrlImportStage {
 	THUMBNAIL_GENERATING,
 	SAVING,
 	COMPLETED,
-	FAILED
+	FAILED,
+	CANCELLED
 }

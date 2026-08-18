@@ -218,8 +218,8 @@ class VideoUploadCsrfTests {
     @Test
     void urlImportRequiresCsrfAndInvokesService() throws Exception {
         UUID jobId = UUID.randomUUID();
-        when(videoUrlImportJobService.start("https://example.com/video.mp4", null, "uploader"))
-                .thenReturn(jobId);
+		when(videoUrlImportJobService.startOrReuse("https://example.com/video.mp4", null, "uploader"))
+				.thenReturn(new VideoUrlImportJobService.StartResult(jobId, false));
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .post("/videos/import-url")
                         .param("url", "https://example.com/video.mp4")
@@ -228,7 +228,7 @@ class VideoUploadCsrfTests {
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.jobId").value(jobId.toString()));
 
-        verify(videoUrlImportJobService).start("https://example.com/video.mp4", null, "uploader");
+		verify(videoUrlImportJobService).startOrReuse("https://example.com/video.mp4", null, "uploader");
     }
 
     @Test
@@ -268,4 +268,24 @@ class VideoUploadCsrfTests {
         mockMvc.perform(get("/videos/import-url/progress/{jobId}", jobId).with(user("uploader")))
                 .andExpect(status().isNotFound());
     }
+
+	@Test
+	void cancelImportRequiresCsrf() throws Exception {
+		UUID jobId = UUID.randomUUID();
+		mockMvc.perform(post("/videos/import-url/{jobId}/cancel", jobId).with(user("uploader")))
+				.andExpect(status().isForbidden());
+		verifyNoInteractions(videoUrlImportJobService);
+	}
+
+	@Test
+	void cancelImportWithCsrfInvokesOwnerScopedService() throws Exception {
+		UUID jobId = UUID.randomUUID();
+		var progress = new VideoUrlImportJobService.JobProgress(jobId, VideoUrlImportStage.CANCELLED,
+				"キャンセルしました", 0, 0, 0, 0, Instant.now(), Instant.now(), null);
+		when(videoUrlImportJobService.cancel(jobId, "uploader")).thenReturn(Optional.of(progress));
+		mockMvc.perform(post("/videos/import-url/{jobId}/cancel", jobId)
+				.with(user("uploader")).with(csrf()))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED"));
+		verify(videoUrlImportJobService).cancel(jobId, "uploader");
+	}
 }

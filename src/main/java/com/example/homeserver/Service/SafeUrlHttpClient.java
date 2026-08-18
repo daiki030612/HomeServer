@@ -16,6 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,13 +79,19 @@ public class SafeUrlHttpClient {
 
 	public DownloadResponse download(URI uri, Path destination, long maxBytes,
 			VideoSourceRequestContext context, ImportStage stage) {
-		return download(uri, destination, maxBytes, context, stage, null);
+		return downloadInternal(uri, destination, maxBytes, context, stage, null, () -> false);
 	}
 
 	public DownloadResponse download(URI uri, Path destination, long maxBytes,
 			VideoSourceRequestContext context, ImportStage stage, SharedDownloadBudget sharedBudget) {
+		return downloadInternal(uri, destination, maxBytes, context, stage, sharedBudget, () -> false);
+	}
+
+	private DownloadResponse downloadInternal(URI uri, Path destination, long maxBytes,
+			VideoSourceRequestContext context, ImportStage stage, SharedDownloadBudget sharedBudget,
+			BooleanSupplier cancellationRequested) {
 		try {
-			Response response = execute(uri, maxBytes, destination, context, stage, sharedBudget);
+			Response response = execute(uri, maxBytes, destination, context, stage, sharedBudget, cancellationRequested);
 			return new DownloadResponse(response.finalUri(), response.contentType(), Files.size(destination));
 		} catch (ResponseSizeLimitException e) {
 			throw new VideoUrlImportException(VideoUrlImportException.Reason.SIZE_LIMIT_EXCEEDED,
@@ -103,10 +110,17 @@ public class SafeUrlHttpClient {
 	private Response execute(URI initialUri, long maxBytes, Path destination,
 			VideoSourceRequestContext context, ImportStage stage,
 			SharedDownloadBudget sharedBudget) throws IOException {
+		return execute(initialUri, maxBytes, destination, context, stage, sharedBudget, () -> false);
+	}
+
+	private Response execute(URI initialUri, long maxBytes, Path destination,
+			VideoSourceRequestContext context, ImportStage stage, SharedDownloadBudget sharedBudget,
+			BooleanSupplier cancellationRequested) throws IOException {
 		VideoSourceRequestContext safeContext = context == null ? VideoSourceRequestContext.EMPTY : context;
 		ImportStage safeStage = stage == null ? ImportStage.MEDIA : stage;
 		URI current = initialUri;
 		for (int redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
+			checkCancellation(cancellationRequested);
 			current = validator.validate(current);
 			HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(current)
 					.timeout(Duration.ofSeconds(60))
@@ -149,7 +163,7 @@ public class SafeUrlHttpClient {
 				throw new ResponseSizeLimitException();
 			}
 			Path target = destination == null ? Files.createTempFile("video-url-text-", ".tmp") : destination;
-			copyLimited(response.body(), target, maxBytes, sharedBudget);
+			copyLimited(response.body(), target, maxBytes, sharedBudget, cancellationRequested);
 			return new Response(current, target,
 					response.headers().firstValue("Content-Type").orElse(""));
 		}
@@ -171,6 +185,11 @@ public class SafeUrlHttpClient {
 
 	private void copyLimited(InputStream input, Path destination, long maxBytes,
 			SharedDownloadBudget sharedBudget) throws IOException {
+		copyLimited(input, destination, maxBytes, sharedBudget, () -> false);
+	}
+
+	private void copyLimited(InputStream input, Path destination, long maxBytes,
+			SharedDownloadBudget sharedBudget, BooleanSupplier cancellationRequested) throws IOException {
 		long total = 0;
 		long budgetClaimed = 0;
 		byte[] buffer = new byte[64 * 1024];
@@ -178,6 +197,7 @@ public class SafeUrlHttpClient {
 				StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
 			int read;
 			while ((read = input.read(buffer)) != -1) {
+				checkCancellation(cancellationRequested);
 				total += read;
 				if (total > maxBytes) throw new ResponseSizeLimitException();
 				if (sharedBudget != null) {
@@ -186,10 +206,17 @@ public class SafeUrlHttpClient {
 				}
 				output.write(buffer, 0, read);
 			}
-		} catch (IOException e) {
+		} catch (IOException | RuntimeException e) {
 			if (sharedBudget != null && budgetClaimed > 0) sharedBudget.release(budgetClaimed);
 			Files.deleteIfExists(destination);
 			throw e;
+		}
+	}
+
+	private void checkCancellation(BooleanSupplier cancellationRequested) {
+		if (Thread.currentThread().isInterrupted()
+				|| (cancellationRequested != null && cancellationRequested.getAsBoolean())) {
+			throw new VideoUrlImportCancelledException();
 		}
 	}
 

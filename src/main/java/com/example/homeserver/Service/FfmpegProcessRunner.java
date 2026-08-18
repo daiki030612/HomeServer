@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import org.springframework.stereotype.Component;
 
@@ -16,16 +17,28 @@ public class FfmpegProcessRunner {
 	private static final int MAX_ERROR_BYTES = 64 * 1024;
 
 	public ProcessResult run(List<String> command, Duration timeout) {
+		return run(command, timeout, () -> false);
+	}
+
+	public ProcessResult run(List<String> command, Duration timeout, BooleanSupplier cancellationRequested) {
 		Process process = null;
 		try {
 			process = start(command);
 			CompletableFuture<String> error = readLimited(process.getErrorStream());
 			CompletableFuture<Void> output = discard(process.getInputStream());
 
-			if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-				process.destroyForcibly();
-				process.waitFor();
-				throw new FfmpegTimeoutException("FFmpeg timed out");
+			long deadline = System.nanoTime() + timeout.toNanos();
+			while (!process.waitFor(250, TimeUnit.MILLISECONDS)) {
+				if (Thread.currentThread().isInterrupted()
+						|| (cancellationRequested != null && cancellationRequested.getAsBoolean())) {
+					process.destroy();
+					if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroyForcibly();
+					throw new VideoUrlImportCancelledException();
+				}
+				if (System.nanoTime() >= deadline) {
+					process.destroyForcibly(); process.waitFor();
+					throw new FfmpegTimeoutException("FFmpeg timed out");
+				}
 			}
 
 			output.join();

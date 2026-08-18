@@ -323,3 +323,16 @@
 		min-height: 160px;
 	}
 }
+.url-job-list { display: grid; gap: 12px; max-height: 480px; overflow-y: auto; }
+.url-job { padding: 14px; border: 1px solid rgba(99, 70, 180, .16); border-radius: 16px; background: rgba(255,255,255,.7); }
+.url-job-heading, .url-job-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.url-job-url { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+.url-job-state { flex: none; font-size: .72rem; font-weight: 750; color: #6b55a3; }
+.url-job-state[data-state="FAILED"], .url-job-state[data-state="CANCELLED"] { color: #b54747; }
+.url-job-operation { margin: 8px 0; color: #62606b; font-size: .9rem; }
+.url-job-time { margin: -3px 0 8px; color: #898692; font-size: .78rem; }
+.url-job progress { width: 100%; accent-color: #7457c7; }
+.url-job-actions { margin-top: 10px; justify-content: flex-end; }
+.url-job-actions a, .url-job-cancel { min-height: 44px; display: inline-flex; align-items: center; border-radius: 12px; padding: 0 14px; }
+.url-job-cancel { border: 1px solid rgba(181,71,71,.28); background: #fff; color: #a63838; font: inherit; }
+@media (max-width: 480px) { .url-job-history { padding: 18px 16px; } .url-job-heading { align-items: flex-start; } }

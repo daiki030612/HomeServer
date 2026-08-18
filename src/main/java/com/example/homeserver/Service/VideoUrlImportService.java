@@ -62,19 +62,22 @@ public class VideoUrlImportService {
 		}
 	}
 
-	public void importVideo(String rawUrl, Long folderId) {
-		importVideo(rawUrl, folderId, VideoUrlImportProgressListener.NOOP);
+	public Long importVideo(String rawUrl, Long folderId) {
+		return importVideo(rawUrl, folderId, VideoUrlImportProgressListener.NOOP);
 	}
 
-	public void importVideo(String rawUrl, Long folderId, VideoUrlImportProgressListener progressListener) {
+	public Long importVideo(String rawUrl, Long folderId, VideoUrlImportProgressListener progressListener) {
 		VideoUrlImportProgressListener progress = progressListener == null
 				? VideoUrlImportProgressListener.NOOP : progressListener;
+		progress.checkCancellation();
 		progress.onStage(VideoUrlImportStage.URL_ANALYZING);
 		// Check the configured work filesystem before doing any remote page fetch.
 		ensureUsableSpace(VideoSourceExtractor.MediaKind.MP4);
 		URI pageUri = validator.validate(rawUrl);
+		progress.checkCancellation();
 		progress.onStage(VideoUrlImportStage.VIDEO_INFO_FETCHING);
 		VideoSourceExtractor.ExtractedVideoSource source = extractSource(pageUri);
+		progress.checkCancellation();
 
 		Path workDirectory = null;
 		try {
@@ -87,6 +90,7 @@ public class VideoUrlImportService {
 			if (source.kind() == VideoSourceExtractor.MediaKind.HLS) {
 				progress.onStage(VideoUrlImportStage.HLS_PLAYLIST_ANALYZING);
 				downloaded = hls.downloadAsMp4(source.mediaUri(), workDirectory, source.requestContext(), hlsProgress -> {
+					progress.checkCancellation();
 					progress.onHlsProgress(hlsProgress);
 					if (hlsProgress.totalSegments() > 0
 							&& hlsProgress.completedSegments() >= hlsProgress.totalSegments()) {
@@ -103,8 +107,9 @@ public class VideoUrlImportService {
 						SafeUrlHttpClient.ImportStage.MEDIA);
 				progress.onHlsProgress(new HlsDownloadService.HlsProgress(0, 0, response.bytes()));
 			}
+			progress.checkCancellation();
 			try {
-				videos.importDownloadedVideo(downloaded, source.title(), folderId,
+				return videos.importDownloadedVideo(downloaded, source.title(), folderId,
 						new VideoService.ImportProgressListener() {
 							@Override public void onThumbnailGenerating() {
 								progress.onStage(VideoUrlImportStage.THUMBNAIL_GENERATING);
@@ -114,6 +119,7 @@ public class VideoUrlImportService {
 							}
 						});
 			} catch (RuntimeException e) {
+				if (e instanceof VideoUrlImportCancelledException cancelled) throw cancelled;
 				VideoUrlImportException.Reason reason = hasDatabaseCause(e)
 						? VideoUrlImportException.Reason.DATABASE_FAILED
 						: hasFfmpegCause(e)
