@@ -29,6 +29,7 @@ import java.util.function.BooleanSupplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -51,6 +52,7 @@ public class HlsDownloadService {
 	private final int concurrency;
 	private final RetrySleeper retrySleeper;
 
+	@Autowired
 	public HlsDownloadService(SafeUrlHttpClient http, FfmpegProcessRunner processRunner,
 			@Value("${video.url-import.max-bytes:5368709120}") long maxBytes,
 			@Value("${video.url-import.ffmpeg-timeout:PT30M}") Duration ffmpegTimeout,
