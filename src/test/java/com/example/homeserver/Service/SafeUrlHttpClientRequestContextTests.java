@@ -96,8 +96,8 @@ class SafeUrlHttpClientRequestContextTests {
 	void tokyoMotionMediaHeadersSurviveRedirectToCdn() throws Exception {
 		UrlSafetyValidator validator = mock(UrlSafetyValidator.class);
 		HttpClient client = mock(HttpClient.class);
-		URI initial = URI.create("https://www41.tokyomotion.net/video/source.mp4");
-		URI redirected = URI.create("https://cdn.example.net/video/source.mp4");
+		URI initial = URI.create("https://www.tokyomotion.net/vsrc/sd/13a5fcc5364b6dce1517");
+		URI redirected = URI.create("https://www41.tokyomotion.net/video/hash/iphone/3475574.mp4");
 		URI referer = URI.create("https://www.tokyomotion.net/");
 		when(validator.validate(initial)).thenReturn(initial);
 		when(validator.validate(redirected)).thenReturn(redirected);
@@ -116,7 +116,8 @@ class SafeUrlHttpClientRequestContextTests {
 				directory.resolve("tokyomotion.mp4"), 1024, context, SafeUrlHttpClient.ImportStage.MEDIA);
 
 		assertEquals(2, requests.size());
-		assertEquals("www41.tokyomotion.net", requests.getFirst().uri().getHost());
+		assertEquals("www.tokyomotion.net", requests.getFirst().uri().getHost());
+		assertEquals("www41.tokyomotion.net", requests.getLast().uri().getHost());
 		for (HttpRequest request : requests) {
 			assertEquals("GET", request.method());
 			assertEquals("Mozilla/5.0 Fixture", request.headers().firstValue("User-Agent").orElseThrow());

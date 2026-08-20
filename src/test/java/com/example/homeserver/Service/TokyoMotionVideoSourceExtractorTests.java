@@ -77,7 +77,7 @@ class TokyoMotionVideoSourceExtractorTests {
 	}
 
 	@Test
-	void extractsCompleteTokyoMotionCdnHostFromEscapedPlayerJsonFixture() throws IOException {
+	void prefersEscapedPlayerVsrcRedirectEndpointOverBrokenHtml5Fallback() throws IOException {
 		SafeUrlHttpClient http = mock(SafeUrlHttpClient.class);
 		String html = fixture("tokyomotion-real-player.html");
 		when(http.getText(eq(WATCH), eq(2048L), any(VideoSourceRequestContext.class),
@@ -86,7 +86,9 @@ class TokyoMotionVideoSourceExtractorTests {
 
 		VideoSourceExtractor.ExtractedVideoSource result = extractor(http, validating()).extract(WATCH);
 
-		assertEquals("www41.tokyomotion.net", result.mediaUri().getHost());
+		assertEquals("www.tokyomotion.net", result.mediaUri().getHost());
+		assertEquals("/vsrc/sd/13a5fcc5364b6dce1517", result.mediaUri().getPath());
+		assertEquals(VideoSourceExtractor.MediaKind.MP4, result.kind());
 		assertFalse("www41.tokyomotio.net".equals(result.mediaUri().getHost()));
 	}
 

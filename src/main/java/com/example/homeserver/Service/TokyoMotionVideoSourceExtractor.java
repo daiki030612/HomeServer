@@ -138,6 +138,7 @@ public class TokyoMotionVideoSourceExtractor implements VideoSourceExtractor {
 			MediaKind kind;
 			if (path.endsWith(".mp4")) kind = MediaKind.MP4;
 			else if (path.endsWith(".m3u8")) kind = MediaKind.HLS;
+			else if (supports(uri) && path.startsWith("/vsrc/")) kind = MediaKind.MP4;
 			else continue;
 			try {
 				MediaCandidate safe = new MediaCandidate(validator.validate(uri), kind);
