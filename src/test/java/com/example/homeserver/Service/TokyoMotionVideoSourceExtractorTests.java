@@ -77,6 +77,33 @@ class TokyoMotionVideoSourceExtractorTests {
 	}
 
 	@Test
+	void extractsCompleteTokyoMotionCdnHostFromEscapedPlayerJsonFixture() throws IOException {
+		SafeUrlHttpClient http = mock(SafeUrlHttpClient.class);
+		String html = fixture("tokyomotion-real-player.html");
+		when(http.getText(eq(WATCH), eq(2048L), any(VideoSourceRequestContext.class),
+				eq(SafeUrlHttpClient.ImportStage.PAGE)))
+				.thenReturn(new SafeUrlHttpClient.TextResponse(WATCH, html, "text/html"));
+
+		VideoSourceExtractor.ExtractedVideoSource result = extractor(http, validating()).extract(WATCH);
+
+		assertEquals("www41.tokyomotion.net", result.mediaUri().getHost());
+		assertFalse("www41.tokyomotio.net".equals(result.mediaUri().getHost()));
+	}
+
+	@Test
+	void extractsCompleteTokyoMotionCdnHostFromHtml5Source() {
+		SafeUrlHttpClient http = mock(SafeUrlHttpClient.class);
+		String html = "<video controls><source src='https://www41.tokyomotion.net/video/id/iphone/1.mp4'></video>";
+		when(http.getText(eq(WATCH), eq(2048L), any(VideoSourceRequestContext.class),
+				eq(SafeUrlHttpClient.ImportStage.PAGE)))
+				.thenReturn(new SafeUrlHttpClient.TextResponse(WATCH, html, "text/html"));
+
+		VideoSourceExtractor.ExtractedVideoSource result = extractor(http, validating()).extract(WATCH);
+
+		assertEquals("www41.tokyomotion.net", result.mediaUri().getHost());
+	}
+
+	@Test
 	void ignoresBlobAndUnsafePrivateCandidates() {
 		SafeUrlHttpClient http = mock(SafeUrlHttpClient.class);
 		UrlSafetyValidator validator = mock(UrlSafetyValidator.class);

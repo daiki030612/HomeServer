@@ -9,6 +9,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -17,13 +19,16 @@ import org.springframework.stereotype.Component;
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class TokyoMotionVideoSourceExtractor implements VideoSourceExtractor {
+	private static final Logger logger = LoggerFactory.getLogger(TokyoMotionVideoSourceExtractor.class);
 	private static final Set<String> SUPPORTED_HOSTS = Set.of("tokyomotion.net", "www.tokyomotion.net");
 	private static final Pattern EMBED_IFRAME = Pattern.compile(
 			"(?is)<iframe\\b[^>]*?\\bsrc\\s*=\\s*['\"]([^'\"]+)['\"]");
 	private static final Pattern PLAYER_MEDIA = Pattern.compile(
-			"(?is)(?:video_url(?:_hd|_text)?|file|src)\\s*[:=]\\s*['\"]([^'\"]+)['\"]");
+			"(?is)['\"]?(?:video_url(?:_hd|_text)?|file|src)['\"]?\\s*[:=]\\s*['\"]([^'\"]+)['\"]");
 	private static final Pattern HTML5_MEDIA = Pattern.compile(
 			"(?is)<(?:video|source)\\b[^>]*?\\bsrc\\s*=\\s*['\"]([^'\"]+)['\"]");
+	private static final Pattern RAW_MEDIA_HOST = Pattern.compile(
+			"(?i)(?:https?:)?(?:\\\\?/){2}([^/\\\\\\s\"'?#]+)");
 	private static final Pattern OG_TITLE = Pattern.compile(
 			"(?is)<meta\\b(?=[^>]*(?:property|name)\\s*=\\s*['\"]og:title['\"])(?=[^>]*content\\s*=\\s*['\"]([^'\"]+)['\"])[^>]*>");
 	private static final Pattern OG_IMAGE = Pattern.compile(
@@ -81,6 +86,8 @@ public class TokyoMotionVideoSourceExtractor implements VideoSourceExtractor {
 					"TokyoMotionの動画URLを取得できませんでした。");
 		}
 		if (title == null || title.isBlank()) title = "TokyoMotion video";
+		logMediaHost("SOURCE_RESULT", media.uri());
+		logMediaHost("REQUEST_CONTEXT", media.uri());
 		return new ExtractedVideoSource(cleanTitle(title), media.uri(), media.kind(),
 				new VideoSourceRequestContext(mediaUserAgent, origin(page.finalUri()), true, true, true), thumbnailUri);
 	}
@@ -120,8 +127,13 @@ public class TokyoMotionVideoSourceExtractor implements VideoSourceExtractor {
 		collect(HTML5_MEDIA, page.html(), candidates);
 		MediaCandidate hls = null;
 		for (String value : candidates) {
-			URI uri = resolve(page.uri(), decodeJavascriptUrl(value));
+			logger.info("TokyoMotion media host: stage=EXTRACT_RAW host={}", rawHost(value));
+			String decoded = decodeJavascriptUrl(value);
+			URI decodedUri = resolve(page.uri(), decoded);
+			logMediaHost("DECODED", decodedUri);
+			URI uri = decodedUri;
 			if (uri == null) continue;
+			logMediaHost("URI", uri);
 			String path = uri.getPath() == null ? "" : uri.getPath().toLowerCase(Locale.ROOT);
 			MediaKind kind;
 			if (path.endsWith(".mp4")) kind = MediaKind.MP4;
@@ -136,6 +148,17 @@ public class TokyoMotionVideoSourceExtractor implements VideoSourceExtractor {
 			}
 		}
 		return hls;
+	}
+
+	private String rawHost(String value) {
+		if (value == null) return "-";
+		Matcher matcher = RAW_MEDIA_HOST.matcher(value);
+		return matcher.find() ? matcher.group(1) : "-";
+	}
+
+	private void logMediaHost(String stage, URI uri) {
+		logger.info("TokyoMotion media host: stage={} host={}", stage,
+				uri == null || uri.getHost() == null ? "-" : uri.getHost());
 	}
 
 	private URI resolve(URI base, String value) {

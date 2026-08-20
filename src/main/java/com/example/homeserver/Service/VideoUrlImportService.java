@@ -102,6 +102,10 @@ public class VideoUrlImportService {
 			} else {
 				progress.onStage(VideoUrlImportStage.DOWNLOADING);
 				downloaded = workDirectory.resolve("downloaded.mp4");
+				if (source.requestContext().browserMediaHeaders()) {
+					logger.info("TokyoMotion media host: stage=DIRECT_DOWNLOAD host={}",
+							source.mediaUri().getHost());
+				}
 				SafeUrlHttpClient.DownloadResponse response = http.download(
 						source.mediaUri(), downloaded, maxBytes, source.requestContext(),
 						SafeUrlHttpClient.ImportStage.MEDIA);

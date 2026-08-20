@@ -187,6 +187,7 @@ public class SafeUrlHttpClient {
 	private void logMediaRequest(URI uri, HttpRequest request, ImportStage stage,
 			VideoSourceRequestContext context) {
 		if (stage != ImportStage.MEDIA || !context.browserMediaHeaders()) return;
+		logger.info("TokyoMotion media host: stage=MEDIA_REQUEST host={}", uri.getHost());
 		logger.info("URL import HTTP request: stage={}, host={}, path={}, method={}, Accept={}, "
 				+ "Accept-Language={}, Range={}, Referer={}, User-Agent={}, Sec-Fetch-Dest={}, "
 				+ "Sec-Fetch-Mode={}, Sec-Fetch-Site={}, sec-ch-ua={}, sec-ch-ua-mobile={}, sec-ch-ua-platform={}",
