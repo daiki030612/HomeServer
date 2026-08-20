@@ -86,6 +86,10 @@ class SafeUrlHttpClientRequestContextTests {
 		HttpRequest request = requests.getFirst();
 		assertEquals("Configured Agent/2.0", request.headers().firstValue("User-Agent").orElseThrow());
 		assertFalse(request.headers().firstValue("Referer").isPresent());
+		assertFalse(request.headers().firstValue("Range").isPresent());
+		assertFalse(request.headers().firstValue("Accept-Language").isPresent());
+		assertFalse(request.headers().firstValue("Sec-Fetch-Dest").isPresent());
+		assertFalse(request.headers().firstValue("sec-ch-ua").isPresent());
 	}
 
 	@Test
@@ -106,18 +110,27 @@ class SafeUrlHttpClientRequestContextTests {
 			return responses.removeFirst();
 		});
 		VideoSourceRequestContext context = new VideoSourceRequestContext(
-				"Mozilla/5.0 Fixture", referer, true, true);
+				"Mozilla/5.0 Fixture", referer, true, true, true);
 
 		new SafeUrlHttpClient(validator, client, "Default Agent/1.0").download(initial,
 				directory.resolve("tokyomotion.mp4"), 1024, context, SafeUrlHttpClient.ImportStage.MEDIA);
 
 		assertEquals(2, requests.size());
+		assertEquals("www41.tokyomotion.net", requests.getFirst().uri().getHost());
 		for (HttpRequest request : requests) {
 			assertEquals("GET", request.method());
 			assertEquals("Mozilla/5.0 Fixture", request.headers().firstValue("User-Agent").orElseThrow());
 			assertEquals(referer.toString(), request.headers().firstValue("Referer").orElseThrow());
 			assertEquals("*/*", request.headers().firstValue("Accept").orElseThrow());
+			assertEquals("ja,en-US;q=0.9,en;q=0.8",
+					request.headers().firstValue("Accept-Language").orElseThrow());
 			assertEquals("bytes=0-", request.headers().firstValue("Range").orElseThrow());
+			assertEquals("video", request.headers().firstValue("Sec-Fetch-Dest").orElseThrow());
+			assertEquals("no-cors", request.headers().firstValue("Sec-Fetch-Mode").orElseThrow());
+			assertEquals("same-site", request.headers().firstValue("Sec-Fetch-Site").orElseThrow());
+			assertEquals("?1", request.headers().firstValue("sec-ch-ua-mobile").orElseThrow());
+			assertEquals("\"Android\"", request.headers().firstValue("sec-ch-ua-platform").orElseThrow());
+			assertTrue(request.headers().firstValue("sec-ch-ua").orElseThrow().contains("Chromium"));
 		}
 		verify(validator).validate(initial);
 		verify(validator).validate(redirected);

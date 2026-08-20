@@ -135,7 +135,17 @@ public class SafeUrlHttpClient {
 			if (safeStage == ImportStage.MEDIA && safeContext.initialByteRange()) {
 				requestBuilder.header("Range", "bytes=0-");
 			}
+			if (safeStage == ImportStage.MEDIA && safeContext.browserMediaHeaders()) {
+				requestBuilder.header("Accept-Language", "ja,en-US;q=0.9,en;q=0.8")
+						.header("Sec-Fetch-Dest", "video")
+						.header("Sec-Fetch-Mode", "no-cors")
+						.header("Sec-Fetch-Site", "same-site")
+						.header("sec-ch-ua", "\"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"")
+						.header("sec-ch-ua-mobile", "?1")
+						.header("sec-ch-ua-platform", "\"Android\"");
+			}
 			HttpRequest request = requestBuilder.build();
+			logMediaRequest(current, request, safeStage, safeContext);
 			HttpResponse<InputStream> response;
 			try {
 				response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
@@ -172,6 +182,24 @@ public class SafeUrlHttpClient {
 					response.headers().firstValue("Content-Type").orElse(""));
 		}
 		throw new IOException("Too many redirects");
+	}
+
+	private void logMediaRequest(URI uri, HttpRequest request, ImportStage stage,
+			VideoSourceRequestContext context) {
+		if (stage != ImportStage.MEDIA || !context.browserMediaHeaders()) return;
+		logger.info("URL import HTTP request: stage={}, host={}, path={}, method={}, Accept={}, "
+				+ "Accept-Language={}, Range={}, Referer={}, User-Agent={}, Sec-Fetch-Dest={}, "
+				+ "Sec-Fetch-Mode={}, Sec-Fetch-Site={}, sec-ch-ua={}, sec-ch-ua-mobile={}, sec-ch-ua-platform={}",
+				stage, uri.getHost(), uri.getPath(), request.method(), header(request, "Accept"),
+				header(request, "Accept-Language"), header(request, "Range"), header(request, "Referer"),
+				header(request, "User-Agent"), header(request, "Sec-Fetch-Dest"),
+				header(request, "Sec-Fetch-Mode"), header(request, "Sec-Fetch-Site"),
+				header(request, "sec-ch-ua"), header(request, "sec-ch-ua-mobile"),
+				header(request, "sec-ch-ua-platform"));
+	}
+
+	private String header(HttpRequest request, String name) {
+		return request.headers().firstValue(name).orElse("-");
 	}
 
 	private String requireSafeUserAgent(String value) {

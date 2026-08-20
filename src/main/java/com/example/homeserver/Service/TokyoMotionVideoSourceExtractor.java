@@ -36,14 +36,17 @@ public class TokyoMotionVideoSourceExtractor implements VideoSourceExtractor {
 	private final UrlSafetyValidator validator;
 	private final long maxPageBytes;
 	private final String userAgent;
+	private final String mediaUserAgent;
 
 	public TokyoMotionVideoSourceExtractor(SafeUrlHttpClient http, UrlSafetyValidator validator,
 			@Value("${video.url-import.max-page-bytes:2097152}") long maxPageBytes,
-			@Value("${video.url-import.user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36}") String userAgent) {
+			@Value("${video.url-import.user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36}") String userAgent,
+			@Value("${video.url-import.tokyomotion-user-agent:Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Mobile Safari/537.36}") String mediaUserAgent) {
 		this.http = http;
 		this.validator = validator;
 		this.maxPageBytes = maxPageBytes;
 		this.userAgent = userAgent;
+		this.mediaUserAgent = mediaUserAgent;
 	}
 
 	@Override
@@ -79,7 +82,7 @@ public class TokyoMotionVideoSourceExtractor implements VideoSourceExtractor {
 		}
 		if (title == null || title.isBlank()) title = "TokyoMotion video";
 		return new ExtractedVideoSource(cleanTitle(title), media.uri(), media.kind(),
-				new VideoSourceRequestContext(userAgent, origin(page.finalUri()), true, true), thumbnailUri);
+				new VideoSourceRequestContext(mediaUserAgent, origin(page.finalUri()), true, true, true), thumbnailUri);
 	}
 
 	private URI findThumbnail(URI pageUri, String html) {

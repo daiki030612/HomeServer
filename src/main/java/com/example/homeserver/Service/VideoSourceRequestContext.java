@@ -4,11 +4,16 @@ import java.net.URI;
 import java.util.Locale;
 
 public record VideoSourceRequestContext(String userAgent, URI referer,
-		boolean initialByteRange, boolean acceptAnyMedia) {
-	public static final VideoSourceRequestContext EMPTY = new VideoSourceRequestContext(null, null, false, false);
+		boolean initialByteRange, boolean acceptAnyMedia, boolean browserMediaHeaders) {
+	public static final VideoSourceRequestContext EMPTY = new VideoSourceRequestContext(null, null, false, false, false);
 
 	public VideoSourceRequestContext(String userAgent, URI referer) {
-		this(userAgent, referer, false, false);
+		this(userAgent, referer, false, false, false);
+	}
+
+	public VideoSourceRequestContext(String userAgent, URI referer,
+			boolean initialByteRange, boolean acceptAnyMedia) {
+		this(userAgent, referer, initialByteRange, acceptAnyMedia, false);
 	}
 
 	public VideoSourceRequestContext {

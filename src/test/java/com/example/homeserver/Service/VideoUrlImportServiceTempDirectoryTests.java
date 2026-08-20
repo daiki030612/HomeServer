@@ -57,7 +57,7 @@ class VideoUrlImportServiceTempDirectoryTests {
 		Path configuredBase = temporaryDirectory.resolve("request-context");
 		SafeUrlHttpClient http = mock(SafeUrlHttpClient.class);
 		VideoSourceRequestContext context = new VideoSourceRequestContext("Mozilla/5.0 Fixture",
-				URI.create("https://www.tokyomotion.net/"), true, true);
+				URI.create("https://www.tokyomotion.net/"), true, true, true);
 		doAnswer(invocation -> {
 			Path destination = invocation.getArgument(1, Path.class);
 			Files.write(destination, new byte[] { 1 });

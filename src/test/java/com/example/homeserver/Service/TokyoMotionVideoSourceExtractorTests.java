@@ -57,6 +57,7 @@ class TokyoMotionVideoSourceExtractorTests {
 		assertEquals(URI.create("https://www.tokyomotion.net/"), result.requestContext().referer());
 		assertTrue(result.requestContext().initialByteRange());
 		assertTrue(result.requestContext().acceptAnyMedia());
+		assertTrue(result.requestContext().browserMediaHeaders());
 		verify(http).getText(eq(EMBED), eq(2048L),
 				eq(new VideoSourceRequestContext(USER_AGENT, WATCH)), eq(SafeUrlHttpClient.ImportStage.PAGE));
 	}
@@ -117,7 +118,7 @@ class TokyoMotionVideoSourceExtractorTests {
 	}
 
 	private TokyoMotionVideoSourceExtractor extractor(SafeUrlHttpClient http, UrlSafetyValidator validator) {
-		return new TokyoMotionVideoSourceExtractor(http, validator, 2048, USER_AGENT);
+		return new TokyoMotionVideoSourceExtractor(http, validator, 2048, USER_AGENT, USER_AGENT);
 	}
 
 	private UrlSafetyValidator validating() {
