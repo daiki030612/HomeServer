@@ -139,6 +139,25 @@ class VideoUrlImportJobServiceTests {
 	}
 
 	@Test
+	void mediaForbiddenFailureIsPersistedWithSafeMessageAndNextJobCanRun() throws Exception {
+		VideoUrlImportService imports = mock(VideoUrlImportService.class);
+		doThrow(new VideoUrlImportException(VideoUrlImportException.Reason.MEDIA_DOWNLOAD_FAILED,
+				"HTTP request failed with status 403: secret-token"))
+				.when(imports).importVideo(contains("tokyomotion.net"), any(), any());
+		when(imports.importVideo(contains("example.com"), any(), any())).thenReturn(42L);
+		jobs = service(imports, 1);
+
+		UUID forbidden = jobs.start("https://www.tokyomotion.net/embed/test", null, "alice");
+		UUID next = jobs.start("https://example.com/video.mp4", null, "alice");
+
+		var failed = awaitTerminal(forbidden);
+		assertEquals(VideoUrlImportJobStatus.FAILED, failed.state());
+		assertEquals("動画データを取得できませんでした。", failed.errorMessage());
+		assertFalse(failed.errorMessage().contains("secret-token"));
+		assertEquals(VideoUrlImportJobStatus.COMPLETED, awaitTerminal(next).state());
+	}
+
+	@Test
 	void startupFailsInterruptedJobButResumesQueuedJob() throws Exception {
 		VideoUrlImportJob interrupted = entity(UUID.randomUUID(), "https://example.com/a",
 				VideoUrlImportJobStatus.DOWNLOADING, Instant.parse("2026-08-20T00:00:00Z"));

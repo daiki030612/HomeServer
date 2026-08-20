@@ -55,6 +55,8 @@ class TokyoMotionVideoSourceExtractorTests {
 		assertEquals(URI.create("https://images.example.net/posters/fixture.jpg"), result.thumbnailUri());
 		assertEquals(USER_AGENT, result.requestContext().userAgent());
 		assertEquals(URI.create("https://www.tokyomotion.net/"), result.requestContext().referer());
+		assertTrue(result.requestContext().initialByteRange());
+		assertTrue(result.requestContext().acceptAnyMedia());
 		verify(http).getText(eq(EMBED), eq(2048L),
 				eq(new VideoSourceRequestContext(USER_AGENT, WATCH)), eq(SafeUrlHttpClient.ImportStage.PAGE));
 	}

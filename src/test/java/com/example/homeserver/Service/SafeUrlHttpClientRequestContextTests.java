@@ -89,6 +89,41 @@ class SafeUrlHttpClientRequestContextTests {
 	}
 
 	@Test
+	void tokyoMotionMediaHeadersSurviveRedirectToCdn() throws Exception {
+		UrlSafetyValidator validator = mock(UrlSafetyValidator.class);
+		HttpClient client = mock(HttpClient.class);
+		URI initial = URI.create("https://www41.tokyomotion.net/video/source.mp4");
+		URI redirected = URI.create("https://cdn.example.net/video/source.mp4");
+		URI referer = URI.create("https://www.tokyomotion.net/");
+		when(validator.validate(initial)).thenReturn(initial);
+		when(validator.validate(redirected)).thenReturn(redirected);
+		ArrayDeque<HttpResponse<InputStream>> responses = new ArrayDeque<>();
+		responses.add(response(302, Map.of("Location", List.of(redirected.toString())), ""));
+		responses.add(response(200, Map.of("Content-Type", List.of("video/mp4")), "video"));
+		List<HttpRequest> requests = new ArrayList<>();
+		when(client.send(any(HttpRequest.class), anyInputStreamHandler())).thenAnswer(invocation -> {
+			requests.add(invocation.getArgument(0, HttpRequest.class));
+			return responses.removeFirst();
+		});
+		VideoSourceRequestContext context = new VideoSourceRequestContext(
+				"Mozilla/5.0 Fixture", referer, true, true);
+
+		new SafeUrlHttpClient(validator, client, "Default Agent/1.0").download(initial,
+				directory.resolve("tokyomotion.mp4"), 1024, context, SafeUrlHttpClient.ImportStage.MEDIA);
+
+		assertEquals(2, requests.size());
+		for (HttpRequest request : requests) {
+			assertEquals("GET", request.method());
+			assertEquals("Mozilla/5.0 Fixture", request.headers().firstValue("User-Agent").orElseThrow());
+			assertEquals(referer.toString(), request.headers().firstValue("Referer").orElseThrow());
+			assertEquals("*/*", request.headers().firstValue("Accept").orElseThrow());
+			assertEquals("bytes=0-", request.headers().firstValue("Range").orElseThrow());
+		}
+		verify(validator).validate(initial);
+		verify(validator).validate(redirected);
+	}
+
+	@Test
 	void rejectsHeaderLineInjection() {
 		assertThrows(IllegalArgumentException.class,
 				() -> new VideoSourceRequestContext("Browser/1.0\r\nX-Injected: yes", URI.create("https://example.com")));

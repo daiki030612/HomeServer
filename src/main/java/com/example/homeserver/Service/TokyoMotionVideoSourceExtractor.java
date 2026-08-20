@@ -79,7 +79,7 @@ public class TokyoMotionVideoSourceExtractor implements VideoSourceExtractor {
 		}
 		if (title == null || title.isBlank()) title = "TokyoMotion video";
 		return new ExtractedVideoSource(cleanTitle(title), media.uri(), media.kind(),
-				new VideoSourceRequestContext(userAgent, origin(page.finalUri())), thumbnailUri);
+				new VideoSourceRequestContext(userAgent, origin(page.finalUri()), true, true), thumbnailUri);
 	}
 
 	private URI findThumbnail(URI pageUri, String html) {

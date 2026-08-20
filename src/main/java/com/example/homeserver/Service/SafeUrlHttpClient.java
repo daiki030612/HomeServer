@@ -126,10 +126,14 @@ public class SafeUrlHttpClient {
 					.timeout(Duration.ofSeconds(60))
 					.header("User-Agent", safeContext.userAgent() == null
 							? defaultUserAgent : safeContext.userAgent())
-					.header("Accept", safeStage.accept())
+					.header("Accept", safeStage == ImportStage.MEDIA && safeContext.acceptAnyMedia()
+							? "*/*" : safeStage.accept())
 					.GET();
 			if (safeContext.referer() != null) {
 				requestBuilder.header("Referer", safeContext.referer().toASCIIString());
+			}
+			if (safeStage == ImportStage.MEDIA && safeContext.initialByteRange()) {
+				requestBuilder.header("Range", "bytes=0-");
 			}
 			HttpRequest request = requestBuilder.build();
 			HttpResponse<InputStream> response;

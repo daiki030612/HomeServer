@@ -3,8 +3,13 @@ package com.example.homeserver.Service;
 import java.net.URI;
 import java.util.Locale;
 
-public record VideoSourceRequestContext(String userAgent, URI referer) {
-	public static final VideoSourceRequestContext EMPTY = new VideoSourceRequestContext(null, null);
+public record VideoSourceRequestContext(String userAgent, URI referer,
+		boolean initialByteRange, boolean acceptAnyMedia) {
+	public static final VideoSourceRequestContext EMPTY = new VideoSourceRequestContext(null, null, false, false);
+
+	public VideoSourceRequestContext(String userAgent, URI referer) {
+		this(userAgent, referer, false, false);
+	}
 
 	public VideoSourceRequestContext {
 		if (userAgent != null) {

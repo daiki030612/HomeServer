@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
@@ -49,6 +50,28 @@ class VideoUrlImportServiceTempDirectoryTests {
 		assertTrue(workDirectory.getParent().equals(configuredBase.toAbsolutePath().normalize()));
 		assertTrue(workDirectory.getFileName().toString().startsWith("homeserver-url-import-"));
 		assertFalse(Files.exists(workDirectory));
+	}
+
+	@Test
+	void preservesExtractorRequestContextForDirectMediaDownload() throws Exception {
+		Path configuredBase = temporaryDirectory.resolve("request-context");
+		SafeUrlHttpClient http = mock(SafeUrlHttpClient.class);
+		VideoSourceRequestContext context = new VideoSourceRequestContext("Mozilla/5.0 Fixture",
+				URI.create("https://www.tokyomotion.net/"), true, true);
+		doAnswer(invocation -> {
+			Path destination = invocation.getArgument(1, Path.class);
+			Files.write(destination, new byte[] { 1 });
+			return new SafeUrlHttpClient.DownloadResponse(MEDIA_URI, "video/mp4", 1);
+		}).when(http).download(eq(MEDIA_URI), any(Path.class), anyLong(), eq(context),
+				eq(SafeUrlHttpClient.ImportStage.MEDIA));
+		VideoUrlImportService service = service(configuredBase, VideoSourceExtractor.MediaKind.MP4,
+				http, mock(HlsDownloadService.class), mock(VideoService.class), context);
+		service.initializeTempBaseDirectory();
+
+		service.importVideo(PAGE_URI.toString(), null);
+
+		verify(http).download(eq(MEDIA_URI), any(Path.class), eq(1024L), eq(context),
+				eq(SafeUrlHttpClient.ImportStage.MEDIA));
 	}
 
 	@Test
@@ -149,12 +172,18 @@ class VideoUrlImportServiceTempDirectoryTests {
 
 	private VideoUrlImportService service(Path configuredBase, VideoSourceExtractor.MediaKind kind,
 			SafeUrlHttpClient http, HlsDownloadService hls, VideoService videos) {
+		return service(configuredBase, kind, http, hls, videos, VideoSourceRequestContext.EMPTY);
+	}
+
+	private VideoUrlImportService service(Path configuredBase, VideoSourceExtractor.MediaKind kind,
+			SafeUrlHttpClient http, HlsDownloadService hls, VideoService videos,
+			VideoSourceRequestContext requestContext) {
 		UrlSafetyValidator validator = mock(UrlSafetyValidator.class);
 		when(validator.validate(PAGE_URI.toString())).thenReturn(PAGE_URI);
 		VideoSourceExtractor extractor = mock(VideoSourceExtractor.class);
 		when(extractor.supports(PAGE_URI)).thenReturn(true);
 		when(extractor.extract(PAGE_URI)).thenReturn(
-				new VideoSourceExtractor.ExtractedVideoSource("title", MEDIA_URI, kind));
+				new VideoSourceExtractor.ExtractedVideoSource("title", MEDIA_URI, kind, requestContext));
 		return new VideoUrlImportService(validator, List.of(extractor), http, hls,
 				videos, 1024, configuredBase.toString());
 	}
