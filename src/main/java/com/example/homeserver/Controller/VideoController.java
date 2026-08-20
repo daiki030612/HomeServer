@@ -355,8 +355,8 @@ public class VideoController {
 	}
 
 	@GetMapping("/import-url/jobs")
-	public List<VideoUrlImportJobService.JobProgress> importJobs(Principal principal) {
-		return videoUrlImportJobService.recent(principal.getName());
+	public ResponseEntity<List<VideoUrlImportJobService.JobProgress>> importJobs(Principal principal) {
+		return ResponseEntity.ok(videoUrlImportJobService.recent(principal.getName()));
 	}
 
 	@PostMapping("/import-url/{jobId}/cancel")

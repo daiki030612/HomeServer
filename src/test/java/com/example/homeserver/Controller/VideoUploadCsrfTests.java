@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +39,7 @@ import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
 import com.example.homeserver.Service.VideoUrlImportJobService;
+import com.example.homeserver.Service.VideoUrlImportJobStatus;
 import com.example.homeserver.Service.VideoUrlImportStage;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
@@ -268,6 +270,36 @@ class VideoUploadCsrfTests {
         mockMvc.perform(get("/videos/import-url/progress/{jobId}", jobId).with(user("uploader")))
                 .andExpect(status().isNotFound());
     }
+
+	@Test
+	void jobListReturnsOwnerScopedJsonIncludingQueuedPositionAndHistory() throws Exception {
+		UUID queuedId = UUID.randomUUID();
+		UUID completedId = UUID.randomUUID();
+		Instant now = Instant.parse("2026-08-20T12:00:00Z");
+		var queued = new VideoUrlImportJobService.JobProgress(queuedId, VideoUrlImportStage.URL_ANALYZING,
+				VideoUrlImportJobStatus.QUEUED, "実行待ちです", 0, 0, 0, 0, now, null, null,
+				null, null, null, false, "https://example.com/queued", 1);
+		var completed = new VideoUrlImportJobService.JobProgress(completedId, VideoUrlImportStage.COMPLETED,
+				VideoUrlImportJobStatus.COMPLETED, "保存が完了しました", 0, 0, 100, 10, now, now, now,
+				null, null, 42L, false, "https://example.com/completed", null);
+		when(videoUrlImportJobService.recent("uploader")).thenReturn(List.of(queued, completed));
+
+		mockMvc.perform(get("/videos/import-url/jobs").with(user("uploader"))
+				.header("Accept", "application/json"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith("application/json"))
+				.andExpect(jsonPath("$[0].state").value("QUEUED"))
+				.andExpect(jsonPath("$[0].queuePosition").value(1))
+				.andExpect(jsonPath("$[1].state").value("COMPLETED"))
+				.andExpect(jsonPath("$[1].videoId").value(42));
+		verify(videoUrlImportJobService).recent("uploader");
+	}
+
+	@Test
+	void jobListRequiresAuthentication() throws Exception {
+		mockMvc.perform(get("/videos/import-url/jobs")).andExpect(status().is3xxRedirection());
+		verifyNoInteractions(videoUrlImportJobService);
+	}
 
 	@Test
 	void cancelImportRequiresCsrf() throws Exception {
