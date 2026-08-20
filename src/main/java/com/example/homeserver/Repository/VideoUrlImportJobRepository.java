@@ -17,4 +17,9 @@ public interface VideoUrlImportJobRepository extends JpaRepository<VideoUrlImpor
 	Optional<VideoUrlImportJob> findByIdAndOwnerUsername(UUID id, String ownerUsername);
 	List<VideoUrlImportJob> findByOwnerUsernameOrderByCreatedAtDesc(String ownerUsername, Pageable pageable);
 	List<VideoUrlImportJob> findByStateIn(Collection<VideoUrlImportJobStatus> states);
+	List<VideoUrlImportJob> findByStateOrderByCreatedAtAscIdAsc(VideoUrlImportJobStatus state);
+	List<VideoUrlImportJob> findByOwnerUsernameAndStateOrderByCreatedAtAscIdAsc(
+			String ownerUsername, VideoUrlImportJobStatus state);
+	List<VideoUrlImportJob> findByOwnerUsernameAndStateInOrderByCreatedAtAscIdAsc(
+			String ownerUsername, Collection<VideoUrlImportJobStatus> states);
 }

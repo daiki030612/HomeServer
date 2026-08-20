@@ -76,7 +76,12 @@ class UnifiedVideoUiTests {
         assertThat(html).contains(
                 "class=\"upload-card\"",
                 "class=\"upload-card url-import-card\"",
-                "class=\"upload-card url-job-history\"");
+				"class=\"upload-card url-job-history\"",
+				"URL保存タスク",
+				"実行中・待機中",
+				"id=\"url-job-active-list\"",
+				"id=\"url-job-history-list\"",
+				"'待機中 #' + job.queuePosition");
         assertThat(css).contains(
 				".upload-page{display:grid;gap:20px;width:100%;max-width:820px;min-width:0",
 				".upload-card{width:100%;max-width:100%;min-width:0",
@@ -84,7 +89,7 @@ class UnifiedVideoUiTests {
 				"overflow-wrap:anywhere",
                 ".url-job-state[data-state=\"COMPLETED\"]",
                 ".url-job-cancel",
-                "max-height:520px",
+				"max-height:360px",
                 "@media(max-width:600px)");
 		assertThat(css).doesNotContain("overflow-x:hidden");
     }

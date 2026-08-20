@@ -122,12 +122,14 @@
 
 		<section class="upload-card url-job-history" aria-labelledby="url-job-history-title">
 			<p class="eyebrow">RECENT JOBS</p>
-			<h2 id="url-job-history-title">URL保存履歴</h2>
-			<div id="url-job-list" class="url-job-list">
-				<article class="url-job" th:each="job : ${urlImportJobs}" th:attr="data-job-id=${job.jobId}">
+			<h2 id="url-job-history-title">URL保存タスク</h2>
+			<h3 class="url-job-group-title">実行中・待機中</h3>
+			<div id="url-job-active-list" class="url-job-list">
+				<article class="url-job" th:each="job : ${urlImportActiveJobs}" th:attr="data-job-id=${job.jobId}">
 					<div class="url-job-heading">
 						<p class="url-job-url" th:text="${job.inputUrl}">URL</p>
-						<span class="url-job-state" th:attr="data-state=${job.state}" th:text="${job.state}">QUEUED</span>
+						<span class="url-job-state" th:attr="data-state=${job.state}"
+							  th:text="${job.state.name() == 'QUEUED' ? '待機中 #' + job.queuePosition : job.state}">QUEUED</span>
 					</div>
 					<p class="url-job-operation" th:text="${job.message}">実行待ちです</p>
 					<p class="url-job-time">
@@ -141,7 +143,26 @@
 								th:attr="data-job-id=${job.jobId}">キャンセル</button>
 					</div>
 				</article>
-				<p class="url-job-empty" th:if="${#lists.isEmpty(urlImportJobs)}">履歴はまだありません。</p>
+				<p class="url-job-empty" th:if="${#lists.isEmpty(urlImportActiveJobs)}">実行中または待機中のタスクはありません。</p>
+			</div>
+			<h3 class="url-job-group-title">履歴</h3>
+			<div id="url-job-history-list" class="url-job-list">
+				<article class="url-job" th:each="job : ${urlImportHistoryJobs}" th:attr="data-job-id=${job.jobId}">
+					<div class="url-job-heading">
+						<p class="url-job-url" th:text="${job.inputUrl}">URL</p>
+						<span class="url-job-state" th:attr="data-state=${job.state}" th:text="${job.state}">COMPLETED</span>
+					</div>
+					<p class="url-job-operation" th:text="${job.errorMessage != null ? job.errorMessage : job.message}">処理結果</p>
+					<p class="url-job-time">
+						<span th:text="${job.startedAt != null ? '開始 ' + #temporals.format(job.startedAt, 'yyyy/MM/dd HH:mm') : '作成 ' + #temporals.format(job.createdAt, 'yyyy/MM/dd HH:mm')}"></span>
+						<span th:if="${job.finishedAt != null}" th:text="${' / 完了 ' + #temporals.format(job.finishedAt, 'yyyy/MM/dd HH:mm')}"></span>
+					</p>
+					<progress max="100" th:value="${job.percentage}"></progress>
+					<div class="url-job-actions">
+						<a th:if="${job.videoId != null}" th:href="@{'/videos/view/' + ${job.videoId}}">保存した動画を開く</a>
+					</div>
+				</article>
+				<p class="url-job-empty" th:if="${#lists.isEmpty(urlImportHistoryJobs)}">履歴はまだありません。</p>
 			</div>
 		</section>
 

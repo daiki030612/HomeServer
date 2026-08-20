@@ -305,7 +305,12 @@ public class VideoController {
 			if (folder == null) return "redirect:/videos";
 			model.addAttribute("currentFolder", folder);
 		}
-		model.addAttribute("urlImportJobs", videoUrlImportJobService.recent(principal.getName()));
+		var urlImportJobs = videoUrlImportJobService.recent(principal.getName());
+		model.addAttribute("urlImportJobs", urlImportJobs);
+		model.addAttribute("urlImportActiveJobs", urlImportJobs.stream()
+				.filter(job -> !job.state().terminal()).toList());
+		model.addAttribute("urlImportHistoryJobs", urlImportJobs.stream()
+				.filter(job -> job.state().terminal()).toList());
 
 		return "video/upload";
 

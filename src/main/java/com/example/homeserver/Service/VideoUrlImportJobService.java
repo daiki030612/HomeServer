@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -24,6 +25,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.example.homeserver.Entity.VideoUrlImportJob;
 import com.example.homeserver.Repository.VideoUrlImportJobRepository;
@@ -38,15 +41,20 @@ public class VideoUrlImportJobService {
 	private static final EnumSet<VideoUrlImportJobStatus> ACTIVE = EnumSet.of(
 			VideoUrlImportJobStatus.QUEUED, VideoUrlImportJobStatus.ANALYZING,
 			VideoUrlImportJobStatus.DOWNLOADING, VideoUrlImportJobStatus.PROCESSING);
+	private static final EnumSet<VideoUrlImportJobStatus> INTERRUPTED = EnumSet.of(
+			VideoUrlImportJobStatus.ANALYZING, VideoUrlImportJobStatus.DOWNLOADING,
+			VideoUrlImportJobStatus.PROCESSING);
 	private final VideoUrlImportService imports;
 	private final VideoUrlImportJobRepository repository;
 	private final ExecutorService executor;
 	private final Duration progressInterval;
 	private final int historyLimit;
+	private final int workerCount;
 	private final ConcurrentMap<UUID, RunningJob> running = new ConcurrentHashMap<>();
+	private Instant lastEnqueuedAt = Instant.EPOCH;
 
 	public VideoUrlImportJobService(VideoUrlImportService imports, VideoUrlImportJobRepository repository,
-			@Value("${video.url-import.job-workers:2}") int workers,
+			@Value("${video.url-import.job-workers:1}") int workers,
 			@Value("${video.url-import.job-progress-interval:PT1S}") Duration progressInterval,
 			@Value("${video.url-import.job-history-limit:25}") int historyLimit) {
 		this.imports = imports;
@@ -54,8 +62,9 @@ public class VideoUrlImportJobService {
 		this.progressInterval = progressInterval == null || progressInterval.isNegative()
 				? Duration.ofSeconds(1) : progressInterval;
 		this.historyLimit = Math.max(1, Math.min(100, historyLimit));
+		this.workerCount = Math.max(1, Math.min(MAX_WORKERS, workers));
 		AtomicInteger number = new AtomicInteger();
-		this.executor = Executors.newFixedThreadPool(Math.max(1, Math.min(MAX_WORKERS, workers)), runnable ->
+		this.executor = Executors.newFixedThreadPool(workerCount, runnable ->
 				Thread.ofPlatform().daemon().name("video-url-import-" + number.incrementAndGet()).unstarted(runnable));
 	}
 
@@ -63,7 +72,7 @@ public class VideoUrlImportJobService {
 	@Transactional
 	void recoverInterruptedJobs() {
 		Instant now = Instant.now();
-		for (VideoUrlImportJob job : repository.findByStateIn(ACTIVE)) {
+		for (VideoUrlImportJob job : repository.findByStateIn(INTERRUPTED)) {
 			job.setState(VideoUrlImportJobStatus.FAILED);
 			job.setStage(VideoUrlImportStage.FAILED);
 			job.setCurrentOperation("サーバー再起動により中断されました");
@@ -71,6 +80,7 @@ public class VideoUrlImportJobService {
 			job.setCompletedAt(now);
 			repository.save(job);
 		}
+		dispatchAfterCommit();
 	}
 
 	@Transactional
@@ -85,19 +95,29 @@ public class VideoUrlImportJobService {
 		job.setInputUrl(rawUrl == null ? "" : rawUrl.trim()); job.setNormalizedUrl(normalized);
 		job.setFolderId(folderId); job.setState(VideoUrlImportJobStatus.QUEUED);
 		job.setStage(VideoUrlImportStage.URL_ANALYZING); job.setCurrentOperation("実行待ちです");
-		job.setCreatedAt(Instant.now()); repository.saveAndFlush(job);
-		RunningJob runtime = new RunningJob(); running.put(job.getId(), runtime);
-		runtime.future = executor.submit(() -> runImport(job.getId(), rawUrl, folderId, runtime));
+		Instant createdAt = Instant.now();
+		if (!createdAt.isAfter(lastEnqueuedAt)) createdAt = lastEnqueuedAt.plusNanos(1);
+		lastEnqueuedAt = createdAt;
+		job.setCreatedAt(createdAt); repository.saveAndFlush(job);
+		dispatchAfterCommit();
 		return new StartResult(job.getId(), false);
 	}
 
 	public UUID start(String rawUrl, Long folderId, String owner) { return startOrReuse(rawUrl, folderId, owner).jobId(); }
 	public Optional<JobProgress> find(UUID id, String owner) {
-		return repository.findByIdAndOwnerUsername(id, owner).map(this::snapshot);
+		return repository.findByIdAndOwnerUsername(id, owner)
+				.map(job -> snapshot(job, queuePosition(job)));
 	}
 	public List<JobProgress> recent(String owner) {
-		return repository.findByOwnerUsernameOrderByCreatedAtDesc(owner, PageRequest.of(0, historyLimit))
-				.stream().map(this::snapshot).toList();
+		List<UUID> queuedIds = repository.findByOwnerUsernameAndStateOrderByCreatedAtAscIdAsc(
+				owner, VideoUrlImportJobStatus.QUEUED).stream().map(VideoUrlImportJob::getId).toList();
+		LinkedHashMap<UUID, VideoUrlImportJob> visible = new LinkedHashMap<>();
+		repository.findByOwnerUsernameAndStateInOrderByCreatedAtAscIdAsc(owner, ACTIVE)
+				.forEach(job -> visible.put(job.getId(), job));
+		repository.findByOwnerUsernameOrderByCreatedAtDesc(owner, PageRequest.of(0, historyLimit))
+				.forEach(job -> visible.putIfAbsent(job.getId(), job));
+		return visible.values().stream()
+				.map(job -> snapshot(job, positionOf(queuedIds, job.getId()))).toList();
 	}
 
 	@Transactional
@@ -105,15 +125,46 @@ public class VideoUrlImportJobService {
 		Optional<VideoUrlImportJob> found = repository.findByIdAndOwnerUsername(id, owner);
 		if (found.isEmpty()) return Optional.empty();
 		VideoUrlImportJob job = found.get();
-		if (job.getState().terminal()) return Optional.of(snapshot(job));
+		if (job.getState().terminal()) return Optional.of(snapshot(job, null));
 		job.setCancelRequested(true); job.setCurrentOperation("キャンセルしています");
 		RunningJob runtime = running.get(id);
 		if (runtime != null) {
 			runtime.cancelled.set(true);
 			if (runtime.future != null) runtime.future.cancel(true);
 		}
-		if (job.getState() == VideoUrlImportJobStatus.QUEUED) markCancelled(job);
-		return Optional.of(snapshot(job));
+		if (job.getState() == VideoUrlImportJobStatus.QUEUED) {
+			markCancelled(job);
+			running.remove(id);
+			dispatchAfterCommit();
+		}
+		return Optional.of(snapshot(job, null));
+	}
+
+	private synchronized void dispatchQueuedJobs() {
+		if (running.size() >= workerCount) return;
+		for (VideoUrlImportJob job : repository.findByStateOrderByCreatedAtAscIdAsc(
+				VideoUrlImportJobStatus.QUEUED)) {
+			if (running.size() >= workerCount) break;
+			if (job.isCancelRequested()) {
+				markCancelled(job);
+				continue;
+			}
+			if (running.containsKey(job.getId())) continue;
+			RunningJob runtime = new RunningJob();
+			running.put(job.getId(), runtime);
+			runtime.future = executor.submit(() -> runImport(
+					job.getId(), job.getInputUrl(), job.getFolderId(), runtime));
+		}
+	}
+
+	private void dispatchAfterCommit() {
+		if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+			dispatchQueuedJobs();
+			return;
+		}
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override public void afterCommit() { dispatchQueuedJobs(); }
+		});
 	}
 
 	private void runImport(UUID id, String rawUrl, Long folderId, RunningJob runtime) {
@@ -136,7 +187,10 @@ public class VideoUrlImportJobService {
 			else { logger.error("Unexpected video URL import job failure: jobId={}", id, e);
 				fail(id, VideoUrlImportException.Reason.SAVE_FAILED,
 						"動画を保存できませんでした。サーバー設定と空き容量を確認してください。"); }
-		} finally { running.remove(id); }
+		} finally {
+			running.remove(id);
+			dispatchQueuedJobs();
+		}
 	}
 
 	@Transactional protected void markStarted(UUID id) { repository.findById(id).ifPresent(job -> {
@@ -166,6 +220,7 @@ public class VideoUrlImportJobService {
 			repository.save(job); });
 	}
 	@Transactional protected void complete(UUID id, Long videoId) { repository.findById(id).ifPresent(job -> {
+		if (job.isCancelRequested()) { markCancelled(job); return; }
 		job.setState(VideoUrlImportJobStatus.COMPLETED); job.setStage(VideoUrlImportStage.COMPLETED);
 		job.setCurrentOperation(message(VideoUrlImportStage.COMPLETED)); job.setProgress(100);
 		job.setVideoId(videoId); job.setCompletedAt(Instant.now()); repository.save(job); }); }
@@ -178,10 +233,21 @@ public class VideoUrlImportJobService {
 		job.setStage(VideoUrlImportStage.CANCELLED); job.setCurrentOperation("キャンセルしました");
 		job.setCompletedAt(Instant.now()); repository.save(job); }
 
-	private JobProgress snapshot(VideoUrlImportJob j) { return new JobProgress(j.getId(), j.getStage(), j.getState(),
+	private Integer queuePosition(VideoUrlImportJob job) {
+		if (job.getState() != VideoUrlImportJobStatus.QUEUED) return null;
+		List<UUID> queuedIds = repository.findByOwnerUsernameAndStateOrderByCreatedAtAscIdAsc(
+				job.getOwnerUsername(), VideoUrlImportJobStatus.QUEUED).stream()
+				.map(VideoUrlImportJob::getId).toList();
+		return positionOf(queuedIds, job.getId());
+	}
+	private Integer positionOf(List<UUID> queuedIds, UUID id) {
+		int index = queuedIds.indexOf(id);
+		return index < 0 ? null : index + 1;
+	}
+	private JobProgress snapshot(VideoUrlImportJob j, Integer queuePosition) { return new JobProgress(j.getId(), j.getStage(), j.getState(),
 			j.getCurrentOperation(), j.getCompletedSegments(), j.getTotalSegments(), j.getProgress(), j.getDownloadedBytes(),
 			j.getCreatedAt(), j.getStartedAt(), j.getCompletedAt(), j.getErrorReason(), j.getErrorMessage(),
-			j.getVideoId(), j.isCancelRequested(), j.getInputUrl()); }
+			j.getVideoId(), j.isCancelRequested(), j.getInputUrl(), queuePosition); }
 	private VideoUrlImportJobStatus stateFor(VideoUrlImportStage stage) { return switch (stage) {
 		case URL_ANALYZING, VIDEO_INFO_FETCHING, HLS_PLAYLIST_ANALYZING -> VideoUrlImportJobStatus.ANALYZING;
 		case DOWNLOADING -> VideoUrlImportJobStatus.DOWNLOADING;
@@ -215,12 +281,12 @@ public class VideoUrlImportJobService {
 	public record JobProgress(UUID jobId, VideoUrlImportStage status, VideoUrlImportJobStatus state, String message,
 			int completedSegments, int totalSegments, int percentage, long downloadedBytes, Instant createdAt,
 			Instant startedAt, Instant finishedAt, VideoUrlImportException.Reason errorReason, String errorMessage,
-			Long videoId, boolean cancelRequested, String inputUrl) {
+			Long videoId, boolean cancelRequested, String inputUrl, Integer queuePosition) {
 		public JobProgress(UUID jobId, VideoUrlImportStage status, String message, int completedSegments,
 				int totalSegments, int percentage, long downloadedBytes, Instant startedAt,
 				Instant finishedAt, VideoUrlImportException.Reason errorReason) {
 			this(jobId, status, stateForLegacy(status), message, completedSegments, totalSegments, percentage,
-					downloadedBytes, startedAt, startedAt, finishedAt, errorReason, null, null, false, null);
+					downloadedBytes, startedAt, startedAt, finishedAt, errorReason, null, null, false, null, null);
 		}
 		private static VideoUrlImportJobStatus stateForLegacy(VideoUrlImportStage stage) {
 			if (stage == VideoUrlImportStage.COMPLETED) return VideoUrlImportJobStatus.COMPLETED;

@@ -319,10 +319,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const urlImportSegments = document.getElementById("url-import-segments");
     const urlImportBytes = document.getElementById("url-import-bytes");
     const urlImportElapsed = document.getElementById("url-import-elapsed");
-	const urlJobList = document.getElementById("url-job-list");
+	const urlJobActiveList = document.getElementById("url-job-active-list");
+	const urlJobHistoryList = document.getElementById("url-job-history-list");
 
     if (urlImportForm) {
         const jobStorageKey = "video-url-import-job:" + urlImportForm.action;
+		let trackedJobId = sessionStorage.getItem(jobStorageKey);
 
         function formatBytes(bytes) {
             const value = Math.max(0, Number(bytes) || 0);
@@ -335,10 +337,13 @@ document.addEventListener("DOMContentLoaded", function() {
         function showProgress(progress) {
             urlImportProgress.hidden = false;
             const percentage = Math.max(0, Math.min(100, Number(progress.percentage) || 0));
-            urlImportStatus.textContent = progress.message || "処理状況を確認しています";
+			const queued = progress.state === "QUEUED";
+			urlImportStatus.textContent = queued && progress.queuePosition
+				? "待機中 #" + progress.queuePosition
+				: (progress.message || "処理状況を確認しています");
             urlImportProgressBar.style.width = percentage + "%";
             urlImportPercentage.textContent = percentage + "%";
-            urlImportSegments.textContent = progress.totalSegments > 0
+			urlImportSegments.textContent = queued ? "解析待ち" : progress.totalSegments > 0
                 ? progress.completedSegments + " / " + progress.totalSegments + " セグメント"
                 : "セグメント情報を取得中";
             urlImportBytes.textContent = formatBytes(progress.downloadedBytes) + " ダウンロード済み";
@@ -348,22 +353,22 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
-		async function refreshJobHistory() {
-			if (!urlJobList) return;
-			const response = await fetch(urlImportForm.action + "/jobs", { headers: { "Accept": "application/json" } });
-			if (!response.ok) return;
-			const jobs = await response.json();
-			urlJobList.replaceChildren();
+		function renderJobs(list, jobs, emptyMessage) {
+			if (!list) return;
+			list.replaceChildren();
 			if (!jobs.length) {
 				const empty = document.createElement("p"); empty.className = "url-job-empty";
-				empty.textContent = "履歴はまだありません。"; urlJobList.append(empty); return;
+				empty.textContent = emptyMessage; list.append(empty); return;
 			}
 			jobs.forEach(job => {
 				const card = document.createElement("article"); card.className = "url-job"; card.dataset.jobId = job.jobId;
 				const heading = document.createElement("div"); heading.className = "url-job-heading";
 				const url = document.createElement("p"); url.className = "url-job-url"; url.textContent = job.inputUrl;
 				const state = document.createElement("span"); state.className = "url-job-state";
-				state.dataset.state = job.state; state.textContent = job.state; heading.append(url, state);
+				state.dataset.state = job.state;
+				state.textContent = job.state === "QUEUED" && job.queuePosition
+					? "待機中 #" + job.queuePosition : job.state;
+				heading.append(url, state);
 				const operation = document.createElement("p"); operation.className = "url-job-operation";
 				operation.textContent = job.errorMessage || job.message;
 				const time = document.createElement("p"); time.className = "url-job-time";
@@ -380,11 +385,26 @@ document.addEventListener("DOMContentLoaded", function() {
 					const cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "url-job-cancel";
 					cancel.dataset.jobId = job.jobId; cancel.textContent = "キャンセル"; actions.append(cancel);
 				}
-				card.append(heading, operation, time, progress, actions); urlJobList.append(card);
+				card.append(heading, operation, time, progress, actions); list.append(card);
 			});
 		}
 
-		urlJobList?.addEventListener("click", async event => {
+		async function refreshJobHistory() {
+			if (!urlJobActiveList || !urlJobHistoryList) return;
+			try {
+				const response = await fetch(urlImportForm.action + "/jobs", { headers: { "Accept": "application/json" } });
+				if (!response.ok) return;
+				const jobs = await response.json();
+				const active = jobs.filter(job => !["COMPLETED", "FAILED", "CANCELLED"].includes(job.state));
+				const history = jobs.filter(job => ["COMPLETED", "FAILED", "CANCELLED"].includes(job.state));
+				renderJobs(urlJobActiveList, active, "実行中または待機中のタスクはありません。");
+				renderJobs(urlJobHistoryList, history, "履歴はまだありません。");
+			} catch (_error) {
+				// 一時的な通信失敗では既存表示を維持し、次回の更新で再試行する。
+			}
+		}
+
+		async function cancelJob(event) {
 			const button = event.target.closest(".url-job-cancel");
 			if (!button || !csrfToken || !csrfHeader) return;
 			button.disabled = true; button.textContent = "キャンセル中...";
@@ -393,38 +413,35 @@ document.addEventListener("DOMContentLoaded", function() {
 			});
 			if (!response.ok) alert("キャンセルできませんでした。再読み込みして確認してください。");
 			await refreshJobHistory();
-		});
+		}
+		urlJobActiveList?.addEventListener("click", cancelJob);
+		urlJobHistoryList?.addEventListener("click", cancelJob);
 
         async function pollJob(jobId) {
-            urlImportButton.disabled = true;
-            urlImportButton.textContent = "保存処理中...";
+			if (trackedJobId !== jobId) return;
             try {
                 const progressUrl = urlImportForm.action + "/progress/" + encodeURIComponent(jobId);
                 const response = await fetch(progressUrl, { headers: { "Accept": "application/json" } });
                 if (response.status === 404) {
-                    sessionStorage.removeItem(jobStorageKey);
+					trackedJobId = null;
+					sessionStorage.removeItem(jobStorageKey);
                     throw new Error("処理状況を確認できませんでした。もう一度実行してください。");
                 }
                 if (!response.ok) throw new Error("処理状況の取得に失敗しました。再試行しています。");
                 const progress = await response.json();
                 showProgress(progress);
-                if (progress.status === "COMPLETED") {
-                    sessionStorage.removeItem(jobStorageKey);
+				if (progress.state === "COMPLETED") {
+					trackedJobId = null;
+					sessionStorage.removeItem(jobStorageKey);
                     urlImportProgressBar.style.width = "100%";
                     urlImportPercentage.textContent = "100%";
-                    const selectedFolder = urlImportForm.elements.folderId.value;
-                    window.setTimeout(() => {
-                        window.location.href = selectedFolder
-                            ? urlImportForm.action.replace(/\/import-url$/, "/folder/" + encodeURIComponent(selectedFolder))
-                            : urlImportForm.action.replace(/\/import-url$/, "");
-                    }, 700);
+					await refreshJobHistory();
                     return;
                 }
 				refreshJobHistory();
-                if (progress.status === "FAILED" || progress.status === "CANCELLED") {
+				if (progress.state === "FAILED" || progress.state === "CANCELLED") {
+					trackedJobId = null;
                     sessionStorage.removeItem(jobStorageKey);
-                    urlImportButton.disabled = false;
-                    urlImportButton.textContent = "URLから保存";
                     return;
                 }
                 window.setTimeout(() => pollJob(jobId), 1000);
@@ -448,9 +465,9 @@ document.addEventListener("DOMContentLoaded", function() {
             }
 
             urlImportButton.disabled = true;
-            urlImportButton.textContent = "保存処理中...";
+			urlImportButton.textContent = "追加中...";
 			urlImportProgress.hidden = false;
-			urlImportStatus.textContent = "URLを解析しています";
+			urlImportStatus.textContent = "キューへ追加しています";
 			urlImportProgressBar.style.width = "0%";
 
             try {
@@ -467,8 +484,16 @@ document.addEventListener("DOMContentLoaded", function() {
                     throw new Error(message || "URLから動画を保存できませんでした。");
                 }
                 const started = await response.json();
+				trackedJobId = started.jobId;
                 sessionStorage.setItem(jobStorageKey, started.jobId);
-				if (started.reused) urlImportStatus.textContent = "同じURLの実行中ジョブを表示しています";
+				urlImportButton.disabled = false;
+				urlImportButton.textContent = "URLから保存";
+				if (started.reused) {
+					urlImportStatus.textContent = "同じURLの実行中ジョブを表示しています";
+				} else {
+					urlImportStatus.textContent = "URL保存タスクを追加しました";
+					urlImportForm.elements.url.value = "";
+				}
 				refreshJobHistory();
                 pollJob(started.jobId);
             } catch (error) {
@@ -479,8 +504,8 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
 
-        const existingJobId = sessionStorage.getItem(jobStorageKey);
-        if (existingJobId) pollJob(existingJobId);
+		if (trackedJobId) pollJob(trackedJobId);
+		window.setInterval(refreshJobHistory, 3000);
     }
 
 });
