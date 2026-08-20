@@ -7,9 +7,14 @@ public interface VideoSourceExtractor {
 	ExtractedVideoSource extract(URI pageUri);
 
 	record ExtractedVideoSource(String title, URI mediaUri, MediaKind kind,
-			VideoSourceRequestContext requestContext) {
+			VideoSourceRequestContext requestContext, URI thumbnailUri) {
 		public ExtractedVideoSource(String title, URI mediaUri, MediaKind kind) {
-			this(title, mediaUri, kind, VideoSourceRequestContext.EMPTY);
+			this(title, mediaUri, kind, VideoSourceRequestContext.EMPTY, null);
+		}
+
+		public ExtractedVideoSource(String title, URI mediaUri, MediaKind kind,
+				VideoSourceRequestContext requestContext) {
+			this(title, mediaUri, kind, requestContext, null);
 		}
 
 		public ExtractedVideoSource {

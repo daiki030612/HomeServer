@@ -126,6 +126,19 @@ class VideoUrlImportJobServiceTests {
 	}
 
 	@Test
+	void queuesTokyoMotionUrlThroughTheExistingFifoWorker() throws Exception {
+		VideoUrlImportService imports = mock(VideoUrlImportService.class);
+		when(imports.importVideo(any(), any(), any())).thenReturn(3475574L);
+		jobs = service(imports, 1);
+		String url = "https://www.tokyomotion.net/embed/13a5fcc5364b6dce1517";
+
+		UUID id = jobs.start(url, null, "alice");
+
+		assertEquals(VideoUrlImportJobStatus.COMPLETED, awaitTerminal(id).state());
+		verify(imports).importVideo(eq(url), isNull(), any());
+	}
+
+	@Test
 	void startupFailsInterruptedJobButResumesQueuedJob() throws Exception {
 		VideoUrlImportJob interrupted = entity(UUID.randomUUID(), "https://example.com/a",
 				VideoUrlImportJobStatus.DOWNLOADING, Instant.parse("2026-08-20T00:00:00Z"));
