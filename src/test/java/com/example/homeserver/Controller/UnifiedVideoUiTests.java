@@ -118,16 +118,27 @@ class UnifiedVideoUiTests {
 		String css = Files.readString(CSS.resolve("video-library.css"));
 
 		assertThat(html).contains(
+				"class=\"page-heading\"",
+				"class=\"toolbar-actions\"",
+				"＋ フォルダ",
+				"URL保存",
+				"＋ アップロード",
 				"class=\"gallery-filters video-filters\"",
 				"name=\"keyword\"",
 				"name=\"tag\"",
 				"filterTag.name == selectedTag",
 				"name=\"sort\"",
-				"class=\"filter-submit\">検索");
+				"class=\"button primary filter-submit\">検索");
 		assertThat(css).contains(
+				".page-heading",
+				"margin-bottom: 25px",
+				".toolbar-actions",
+				".button.primary",
 				"grid-template-columns: minmax(180px, 1fr) 160px 160px auto",
-				"display: block",
 				"min-height: 43px",
-				"grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)");
+				"padding: 9px",
+				"@media (max-width: 700px)",
+				"grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)")
+				.doesNotContain("@media (max-width: 760px)");
 	}
 }

@@ -18,10 +18,17 @@
 	<div th:replace="~{fragments/header :: header}"></div>
 
 	<div class="container">
-		<section class="library-hero">
-			<p class="eyebrow">LIBRARY</p>
-			<h1 th:text="${currentFolder != null ? currentFolder.name : '動画一覧'}">動画一覧</h1>
-		</section>
+		<div class="page-heading">
+			<div>
+				<p class="eyebrow">LIBRARY</p>
+				<h1 th:text="${currentFolder != null ? currentFolder.name : '動画一覧'}">動画一覧</h1>
+			</div>
+			<div class="toolbar-actions" aria-label="ライブラリ操作">
+				<button class="button" type="button" onclick="openFolderModal()">＋ フォルダ</button>
+				<a class="button" th:href="@{/videos/upload(folderId=${currentFolder != null ? currentFolder.id : null})} + '#url-import'">URL保存</a>
+				<a class="button primary" th:href="@{/videos/upload(folderId=${currentFolder != null ? currentFolder.id : null})}">＋ アップロード</a>
+			</div>
+		</div>
 
 		<!-- =========================
      パンくずリスト
@@ -108,7 +115,7 @@
 
 				</select>
 			</label>
-			<button type="submit" class="filter-submit">検索</button>
+			<button type="submit" class="button primary filter-submit">検索</button>
 		</form>
 
 
