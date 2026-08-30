@@ -1,0 +1,19 @@
+.logout-form { margin: 0; }
+.logout-link {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.logout-link:hover { background: #292d38; color: var(--text); }
+@media (max-width: 700px) {
+  .logout-link { min-height: 44px; padding: 10px; }
+}
+@media (max-width: 520px) {
+  .page-nav > a:first-child { display: none; }
+}

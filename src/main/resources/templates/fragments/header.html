@@ -1,70 +1,35 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-
-<!-- Header Fragment -->
-<header th:fragment="header" class="header unified-header">
+<!doctype html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<body>
+<header th:fragment="header" class="topbar unified-header">
+	<link rel="stylesheet" th:href="@{/css/navigation.css}">
 	<link rel="stylesheet" th:href="@{/css/unified-header.css}">
-	<div class="header-inner unified-header-inner">
-		<a th:href="@{/videos}" class="logo" aria-label="Video Server ホーム">
-			<span>VideoServer</span>
-		</a>
+	<div class="unified-header-inner">
+		<a class="brand logo" th:href="@{/videos}">VideoServer</a>
 		<button type="button" class="hamburger-button unified-menu-button" data-header-menu-button
-			aria-label="メニューを開く" aria-expanded="false" aria-controls="video-header-menu">
-			<span></span><span></span>
-		</button>
+			aria-label="メニューを開く" aria-expanded="false" aria-controls="video-header-menu"><span></span><span></span></button>
 		<div class="app-switcher" aria-label="アプリ切り替え">
 			<a class="app-switch-link active" th:href="@{/videos}" aria-current="page">Video</a>
 			<a class="app-switch-link" data-app-target="image"
 				th:attr="data-url=${imageAppUrl},data-port=${imageAppPort},data-path=${imageAppPath}">Image</a>
 		</div>
-		<nav class="nav unified-nav" aria-label="メインナビゲーション">
-			<div class="mobile-menu unified-menu" id="video-header-menu" data-header-menu>
-				<div class="mobile-app-switcher" aria-label="アプリ切り替え">
-					<a class="active" th:href="@{/videos}" aria-current="page">Video</a>
-					<a data-app-target="image"
-						th:attr="data-url=${imageAppUrl},data-port=${imageAppPort},data-path=${imageAppPath}">Image</a>
-				</div>
-
-				<a th:href="@{/videos}">
-					ライブラリ
-				</a>
-
-
-				<!-- 新しいフォルダ -->
-				<a href="#" onclick="openFolderModal(); return false;"> 
-					新しいフォルダ
-				</a>
-
-
-					<!-- アップロード -->
-					<a th:href="@{/videos/upload(
-			            folderId=${currentFolder != null ? currentFolder.id : null}
-			        )}">
-						アップロード
-					</a>
-					<a th:href="@{/videos/upload(
-			            folderId=${currentFolder != null ? currentFolder.id : null}
-			        )} + '#url-import'">
-						URLから追加
-					</a>
-
-					<!-- ログアウト -->
-					<form th:action="@{/logout}" method="post" class="logout-form">
-						<button type="submit" class="logout-link">ログアウト</button>
-					</form>
-
-				</div>
-
+		<nav class="unified-nav" aria-label="メインナビゲーション">
+			<div class="page-nav unified-menu" id="video-header-menu" data-header-menu>
+				<a th:href="@{/videos}">ライブラリ</a>
+				<a href="#" onclick="openFolderModal(); return false;">新しいフォルダ</a>
+				<a class="button small" th:href="@{/videos/upload(folderId=${currentFolder != null ? currentFolder.id : null})}">アップロード</a>
+				<a class="button small" th:href="@{/videos/upload(folderId=${currentFolder != null ? currentFolder.id : null})} + '#url-import'">URLから追加</a>
+				<form class="logout-form" th:action="@{/logout}" method="post"><button class="logout-link" type="submit">ログアウト</button></form>
+			</div>
 		</nav>
-		<div class="storage-status unified-storage" th:if="${storageInfo != null and storageInfo.available}" th:classappend="${storageInfo != null and storageInfo.warning} ? ' storage-warning'"
+		<div class="storage-status unified-storage" th:if="${storageInfo != null and storageInfo.available}"
+			th:classappend="${storageInfo != null and storageInfo.warning} ? ' storage-warning'"
 			th:title="|使用 ${storageInfo.usedDisplay} / ${storageInfo.totalDisplay} (${storageInfo.usagePercent}%)|">
-			<strong class="storage-desktop" th:text="|空き ${storageInfo.freeDisplay} / ${storageInfo.totalDisplay}|">空き容量</strong>
-			<strong class="storage-mobile" th:text="|${storageInfo.freeDisplay} 空き|">空き容量</strong>
-			<small th:if="${storageInfo.warning}">残量注意</small>
+			<strong class="storage-desktop" th:text="|空き ${storageInfo.freeDisplay} / ${storageInfo.totalDisplay}|">空き容量</strong><strong class="storage-mobile" th:text="|${storageInfo.freeDisplay} 空き|">空き容量</strong><small th:if="${storageInfo.warning}">残量注意</small>
 		</div>
-
-		<script defer th:src="@{/js/app-navigation.js}"></script>
-		<script defer th:src="@{/js/header-menu.js}"></script>
+	</div>
+	<script defer th:src="@{/js/app-navigation.js}"></script>
+	<script defer th:src="@{/js/header-menu.js}"></script>
 </header>
-
+</body>
 </html>

@@ -95,20 +95,21 @@ class UnifiedVideoUiTests {
     }
 
 	@Test
-	void mobileHeaderPlacesBrandStorageAndMenuInOneRow() throws IOException {
+	void mobileHeaderMatchesImageGalleryStructureAndGrid() throws IOException {
 		String header = Files.readString(TEMPLATES.resolve("fragments/header.html"));
 		String css = Files.readString(CSS.resolve("unified-header.css"));
 
 		assertThat(header).contains(
-				"<span>VideoServer</span>",
-				"class=\"mobile-app-switcher\"",
+				"class=\"brand logo\"",
+				"class=\"app-switcher\"",
 				"URLから追加",
-				"class=\"storage-status unified-storage\"");
+				"class=\"storage-status unified-storage\"")
+				.doesNotContain("mobile-app-switcher");
 		assertThat(css).contains(
-				"grid-template-columns:minmax(0,1fr) auto 44px",
-				".unified-header .hamburger-button{display:grid;grid-column:3",
-				".unified-header .unified-storage{grid-column:2;grid-row:1",
-				"@media(max-width:350px)");
+				"grid-template-columns:44px minmax(128px,auto) minmax(0,1fr)",
+				".unified-header .hamburger-button{display:grid;place-content:center",
+				".unified-header .unified-storage{justify-self:end",
+				"@media(max-width:390px)");
 	}
 
 	@Test

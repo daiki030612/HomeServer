@@ -56,13 +56,13 @@ class ContextPathUrlTests {
     }
 
 	@Test
-	void desktopAndMobileAppLinksUseSameWebViewNavigation() throws IOException {
+	void responsiveAppSwitcherUsesSameWebViewNavigation() throws IOException {
 		String header = Files.readString(HEADER);
 		String navigationScript = Files.readString(APP_NAVIGATION_SCRIPT);
 		String menuScript = Files.readString(HEADER_MENU_SCRIPT);
 
 		assertTrue(header.contains("class=\"app-switch-link\" data-app-target=\"image\""));
-		assertTrue(header.contains("<a data-app-target=\"image\""));
+		assertFalse(header.contains("mobile-app-switcher"));
 		assertTrue(navigationScript.contains("querySelectorAll('[data-app-target]')"));
 		assertTrue(navigationScript.contains("link.href = target.href"));
 		assertFalse(navigationScript.contains("window.open"));
