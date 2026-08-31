@@ -164,6 +164,8 @@
 				<div class="folder-menu-dropdown" role="menu" th:id="|folder-menu-${folder.id}|"
 					th:aria-labelledby="|folder-menu-button-${folder.id}|">
 					<div class="action-sheet-title" aria-hidden="true" th:text="${folder.name}"></div>
+					<a class="folder-download-link" th:href="@{/folders/{id}/download(id=${folder.id})}"
+						role="menuitem">ダウンロード</a>
 
 					<a href="#" th:data-id="${folder.id}" th:data-name="${folder.name}"
 						onclick="openRenameFolderModal(event, this)" role="menuitem">
@@ -241,6 +243,9 @@
 
 						<div class="menu-dropdown">
 							<div class="action-sheet-title" aria-hidden="true"></div>
+							<a class="video-download-link" th:href="@{/videos/{id}/download(id=${video.id})}">
+								ダウンロード
+							</a>
 
 							<!-- 名前・タグ編集 -->
 							<a href="#" class="edit-video-button" th:data-id="${video.id}"
