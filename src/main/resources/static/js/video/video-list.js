@@ -646,8 +646,7 @@ function toggleFolderMenu(event, button) {
     event.stopPropagation();
 
 
-	const owner = button.closest(".folder-card-shell");
-    const menu = owner.querySelector(".folder-menu-dropdown");
+    const menu = button.parentElement.querySelector(".folder-menu-dropdown");
 	guardMenuInteraction(menu);
     const willOpen = !menu.classList.contains("show");
 
@@ -662,7 +661,7 @@ function toggleFolderMenu(event, button) {
     menu.classList.remove("open-upward");
 	const touchMenu = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 	if (touchMenu) {
-		menu._folderMenuOwner = owner;
+		menu._folderMenuOwner = button.parentElement;
 		menu.classList.add("touch-action-sheet");
 		document.body.appendChild(menu);
 		document.getElementById("videoMenuBackdrop")?.classList.add("show");
