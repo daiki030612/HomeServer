@@ -47,11 +47,11 @@ class UnifiedVideoUiTests {
 				".folder-card-shell",
 				".folder-cover",
                 ".video-card",
-				"aspect-ratio: 3 / 4",
+				"repeat(auto-fill, minmax(180px, 1fr))",
+				"height: 76px",
                 "aspect-ratio: 16 / 9",
                 "repeat(2, minmax(0, 1fr))",
-				"@media (min-width: 650px)",
-				"@media (min-width: 950px)");
+				"@media (max-width: 700px)");
     }
 
     @Test

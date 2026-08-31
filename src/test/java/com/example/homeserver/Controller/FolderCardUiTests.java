@@ -25,7 +25,7 @@ class FolderCardUiTests {
 	}
 
 	@Test
-	void cardUsesImageGalleryStructureAndResponsiveGrid() throws IOException {
+	void cardUsesImageGalleryStructureWithVideoOptimizedDensity() throws IOException {
 		String html = Files.readString(TEMPLATE);
 		String css = Files.readString(STYLE);
 
@@ -33,11 +33,12 @@ class FolderCardUiTests {
 		assertTrue(html.contains("class=\"cover folder-cover\""));
 		assertTrue(html.contains("class=\"card-body folder-card-body\""));
 		assertTrue(html.contains("<h2 class=\"folder-name\""));
+		assertTrue(css.contains("grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));"));
+		assertTrue(css.contains("min-height: 132px;"));
+		assertTrue(css.contains("height: 76px;"));
+		assertTrue(css.contains("width: 48px;"));
 		assertTrue(css.contains("grid-template-columns: repeat(2, minmax(0, 1fr));"));
-		assertTrue(css.contains("@media (min-width: 650px)"));
-		assertTrue(css.contains("grid-template-columns: repeat(3, 1fr);"));
-		assertTrue(css.contains("@media (min-width: 950px)"));
-		assertTrue(css.contains("grid-template-columns: repeat(5, 1fr);"));
+		assertFalse(css.contains("grid-template-columns: repeat(5, 1fr);"));
 	}
 
 	@Test
