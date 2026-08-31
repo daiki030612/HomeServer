@@ -83,7 +83,8 @@ class VideoMoveTouchUiTests {
 		String script = Files.readString(SCRIPT);
 		String css = Files.readString(STYLE);
 
-		assertTrue(script.contains("menu._folderMenuOwner = button.parentElement"));
+		assertTrue(script.contains("const owner = button.closest(\".folder-card-shell\")"));
+		assertTrue(script.contains("menu._folderMenuOwner = owner"));
 		assertTrue(script.contains("menu._folderMenuOwner.appendChild(menu)"));
 		assertTrue(html.contains("class=\"action-sheet-cancel\" onclick=\"closeFolderMenus()\""));
 		assertTrue(html.contains("return confirm('このフォルダーを削除しますか？')"));

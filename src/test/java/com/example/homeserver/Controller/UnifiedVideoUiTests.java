@@ -44,11 +44,14 @@ class UnifiedVideoUiTests {
                 "class=\"library-empty\"");
 		assertThat(html).doesNotContain("PRIVATE MEDIA LIBRARY", "大切な映像を");
         assertThat(css).contains(
-                ".folder-card,",
+				".folder-card-shell",
+				".folder-cover",
                 ".video-card",
+				"aspect-ratio: 3 / 4",
                 "aspect-ratio: 16 / 9",
                 "repeat(2, minmax(0, 1fr))",
-                "@media (max-width: 350px)");
+				"@media (min-width: 650px)",
+				"@media (min-width: 950px)");
     }
 
     @Test

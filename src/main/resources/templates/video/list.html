@@ -138,25 +138,25 @@
 		</div>
 		<div class="folder-grid">
 
-			<div class="folder-card" th:each="folder : ${folders}" th:data-id="${folder.id}"
+			<div class="folder-card-shell" th:each="folder : ${folders}" th:data-id="${folder.id}"
 				ondragover="allowVideoDrop(event, this)" ondragenter="enterVideoDrop(event, this)"
 				ondragleave="leaveVideoDrop(event, this)" ondrop="dropVideo(event, this)">
-
-				<a class="folder-link" th:href="@{/videos/folder/{id}(id=${folder.id})}"
-					th:aria-label="|${folder.name} フォルダを開く|">
-
-					<div class="folder-icon" aria-hidden="true"></div>
-
-					<div class="folder-name" th:text="${folder.name}">
-						フォルダ名
-					</div>
-					<div class="folder-meta">フォルダ</div>
-
-				</a>
-				<button type="button" class="folder-menu-button" onclick="toggleFolderMenu(event, this)"
-					th:id="|folder-menu-button-${folder.id}|" th:aria-controls="|folder-menu-${folder.id}|"
-					th:aria-label="|${folder.name} の操作メニュー|"
-					aria-haspopup="menu" aria-expanded="false">…</button>
+				<article class="card folder-card">
+					<a class="folder-link" th:href="@{/videos/folder/{id}(id=${folder.id})}"
+						th:aria-label="|${folder.name} フォルダを開く|">
+						<div class="cover folder-cover">
+							<div class="folder-icon" aria-hidden="true"></div>
+						</div>
+						<div class="card-body folder-card-body">
+							<h2 class="folder-name" th:text="${folder.name}">フォルダ名</h2>
+							<p class="folder-meta">フォルダ</p>
+						</div>
+					</a>
+					<button type="button" class="folder-menu-button" onclick="toggleFolderMenu(event, this)"
+						th:id="|folder-menu-button-${folder.id}|" th:aria-controls="|folder-menu-${folder.id}|"
+						th:aria-label="|${folder.name} の操作メニュー|"
+						aria-haspopup="menu" aria-expanded="false">…</button>
+				</article>
 
 
 				<!-- フォルダメニュー -->
