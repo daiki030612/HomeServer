@@ -23,7 +23,21 @@ class VideoFavoriteUiTests {
 				"@{/videos/{id}/favorite(id=${video.id})}",
 				"th:aria-pressed=\"${video.favorite}\"",
 				"'お気に入りから削除' : 'お気に入りに追加'",
-				"name=\"favorite\" value=\"true\" th:checked=\"${favoriteOnly}\"");
+				"name=\"favorite\" value=\"true\" th:checked=\"${favoriteOnly}\"",
+				"onchange=\"applyFavoriteFilter(this)\"");
+	}
+
+	@Test
+	void checkboxAddsOrRemovesFavoriteQueryWhileKeepingOtherFilters() throws Exception {
+		String script = Files.readString(SCRIPT);
+
+		assertThat(script).contains(
+				"new URLSearchParams(new FormData(form))",
+				"params.set(\"favorite\", \"true\")",
+				"params.delete(\"favorite\")",
+				"window.location.assign(window.location.pathname",
+				"new URLSearchParams(window.location.search).get(\"favorite\") === \"true\"",
+				"button.closest(\".video-card\")?.remove()");
 	}
 
 	@Test

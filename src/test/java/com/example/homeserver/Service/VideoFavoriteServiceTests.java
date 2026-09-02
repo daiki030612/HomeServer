@@ -53,6 +53,41 @@ class VideoFavoriteServiceTests {
 		verify(repository).findLibraryVideos(null, "", "", false, sort);
 	}
 
+	@Test
+	void favoriteOnlyFilterWorksByItself() {
+		Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+		service.findLibraryVideos(null, null, null, true, "newest");
+		verify(repository).findLibraryVideos(null, "", "", true, sort);
+	}
+
+	@Test
+	void favoriteOnlyCombinesWithSearch() {
+		Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+		service.findLibraryVideos(null, "猫", null, true, "newest");
+		verify(repository).findLibraryVideos(null, "猫", "", true, sort);
+	}
+
+	@Test
+	void favoriteOnlyCombinesWithTag() {
+		Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+		service.findLibraryVideos(null, null, "旅行", true, "newest");
+		verify(repository).findLibraryVideos(null, "", "旅行", true, sort);
+	}
+
+	@Test
+	void favoriteOnlyCombinesWithFolder() {
+		Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+		service.findLibraryVideos(42L, null, null, true, "newest");
+		verify(repository).findLibraryVideos(42L, "", "", true, sort);
+	}
+
+	@Test
+	void favoriteOnlyCombinesWithSort() {
+		Sort sort = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id"));
+		service.findLibraryVideos(null, null, null, true, "oldest");
+		verify(repository).findLibraryVideos(null, "", "", true, sort);
+	}
+
 	private VideoService createService() {
 		VideoService result = new VideoService();
 		ReflectionTestUtils.setField(result, "videoRepository", repository);

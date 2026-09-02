@@ -118,7 +118,8 @@
 			<label class="favorite-filter">
 				<span>お気に入り</span>
 				<span class="favorite-filter-control">
-					<input type="checkbox" name="favorite" value="true" th:checked="${favoriteOnly}">
+					<input type="checkbox" name="favorite" value="true" th:checked="${favoriteOnly}"
+						onchange="applyFavoriteFilter(this)">
 					お気に入りのみ
 				</span>
 			</label>

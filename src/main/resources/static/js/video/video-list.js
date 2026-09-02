@@ -22,6 +22,10 @@ function updateVideoFavorite(event, button) {
         })
         .then(function(result) {
             setFavoriteButtonState(button, result.favorite === true);
+            if (result.favorite !== true && isFavoriteFilterActive()) {
+                button.closest(".video-card")?.remove();
+                updateVisibleVideoCount();
+            }
         })
         .catch(function(error) {
             console.error(error);
@@ -31,6 +35,35 @@ function updateVideoFavorite(event, button) {
         .finally(function() {
             button.disabled = false;
         });
+}
+
+function applyFavoriteFilter(checkbox) {
+    const form = checkbox.closest("form");
+    if (!form) return;
+
+    const params = new URLSearchParams(new FormData(form));
+    if (checkbox.checked) {
+        params.set("favorite", "true");
+    } else {
+        params.delete("favorite");
+    }
+
+    ["keyword", "tag"].forEach(function(name) {
+        if (!params.get(name)) params.delete(name);
+    });
+
+    const query = params.toString();
+    window.location.assign(window.location.pathname + (query ? "?" + query : ""));
+}
+
+function isFavoriteFilterActive() {
+    return new URLSearchParams(window.location.search).get("favorite") === "true";
+}
+
+function updateVisibleVideoCount() {
+    const count = document.querySelectorAll(".video-card").length;
+    const label = document.querySelector(".video-grid")?.previousElementSibling?.querySelector("span");
+    if (label) label.textContent = count + "件";
 }
 
 function sendFavoriteUpdate(url, favorite) {
