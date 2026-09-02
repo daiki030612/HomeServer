@@ -42,6 +42,9 @@ class VideoServiceFileConsistencyTests {
 	ThumbnailService thumbnailService;
 
 	@Mock
+	CustomThumbnailService customThumbnailService;
+
+	@Mock
 	VideoProbeService videoProbeService;
 
 	@Mock
@@ -74,6 +77,7 @@ class VideoServiceFileConsistencyTests {
 		videoService = new VideoService();
 		ReflectionTestUtils.setField(videoService, "videoRepository", videoRepository);
 		ReflectionTestUtils.setField(videoService, "thumbnailService", thumbnailService);
+		ReflectionTestUtils.setField(videoService, "customThumbnailService", customThumbnailService);
 		ReflectionTestUtils.setField(videoService, "videoProbeService", videoProbeService);
 		ReflectionTestUtils.setField(videoService, "compatibilityService", compatibilityService);
 		ReflectionTestUtils.setField(videoService, "videoRemuxService", videoRemuxService);
@@ -376,6 +380,22 @@ class VideoServiceFileConsistencyTests {
 
 		assertFalse(Files.notExists(outside));
 		verify(videoRepository, never()).delete(video);
+	}
+
+	@Test
+	void deleteRemovesCustomThumbnailBeforeDatabaseRecord() throws Exception {
+		Path videoFile = Files.write(videoRoot.resolve("inside.mp4"), new byte[] { 1 });
+		Path automatic = Files.write(thumbnailRoot.resolve("thumbnail.jpg"), new byte[] { 2 });
+		Video video = video(videoFile, automatic);
+		video.setCustomThumbnailName("1-custom.jpg");
+		when(videoRepository.findById(1L)).thenReturn(Optional.of(video));
+
+		videoService.deleteVideo(1L);
+
+		verify(customThumbnailService).deleteForVideo(video);
+		verify(videoRepository).delete(video);
+		assertFalse(Files.exists(videoFile));
+		assertFalse(Files.exists(automatic));
 	}
 
 	@Test

@@ -106,6 +106,100 @@ function showFavoriteStatus(message) {
 
 /*
  * =========================
+ * カスタムサムネイル
+ * =========================
+ */
+
+let selectedThumbnailButton = null;
+
+function openThumbnailPicker(event, button) {
+    event.preventDefault();
+    event.stopPropagation();
+    selectedThumbnailButton = button;
+    closeVideoMenus();
+    const input = document.getElementById("thumbnailFileInput");
+    input.value = "";
+    input.click();
+}
+
+function uploadSelectedThumbnail(input) {
+    const file = input.files && input.files[0];
+    const button = selectedThumbnailButton;
+    selectedThumbnailButton = null;
+    if (!file || !button) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+        showFavoriteStatus("サムネイル画像は10MB以下にしてください。");
+        input.value = "";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("thumbnail", file, file.name);
+    showFavoriteStatus("サムネイルをアップロードしています…");
+    sendThumbnailRequest(button.dataset.uploadUrl, formData)
+        .then(readThumbnailResponse)
+        .then(function(result) {
+            updateCardThumbnail(button.dataset.id, button.dataset.uploadUrl, result);
+            showFavoriteStatus("サムネイルを変更しました。");
+        })
+        .catch(function(error) {
+            console.error(error);
+            showFavoriteStatus(error.message || "サムネイルを変更できませんでした。");
+        })
+        .finally(function() { input.value = ""; });
+}
+
+function resetCustomThumbnail(event, button) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (button.disabled) return;
+    button.disabled = true;
+    showFavoriteStatus("サムネイルを元に戻しています…");
+    sendThumbnailRequest(button.dataset.resetUrl)
+        .then(readThumbnailResponse)
+        .then(function(result) {
+            const uploadUrl = button.closest(".menu-dropdown").querySelector(".thumbnail-change-button").dataset.uploadUrl;
+            updateCardThumbnail(button.dataset.id, uploadUrl, result);
+            showFavoriteStatus("自動生成サムネイルへ戻しました。");
+        })
+        .catch(function(error) {
+            console.error(error);
+            showFavoriteStatus(error.message || "サムネイルを元に戻せませんでした。");
+        })
+        .finally(function() { button.disabled = false; });
+}
+
+function sendThumbnailRequest(url, formData) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+    if (!url || !csrfToken || !csrfHeader) return Promise.reject(new Error("CSRFトークンを取得できません"));
+    return fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { [csrfHeader]: csrfToken },
+        body: formData
+    });
+}
+
+function readThumbnailResponse(response) {
+    return response.json().catch(function() { return {}; }).then(function(body) {
+        if (!response.ok) throw new Error(body.message || "サムネイルを更新できませんでした。");
+        return body;
+    });
+}
+
+function updateCardThumbnail(videoId, uploadUrl, result) {
+    const card = document.querySelector('.video-card[data-id="' + CSS.escape(String(videoId)) + '"]');
+    if (!card) return;
+    const image = card.querySelector(".thumbnail");
+    if (image) image.src = uploadUrl + "?v=" + encodeURIComponent(result.version || Date.now());
+    const reset = card.querySelector(".thumbnail-reset-button");
+    if (reset) reset.hidden = result.custom !== true;
+}
+
+/*
+ * =========================
  * 動画メニュー
  * =========================
  */

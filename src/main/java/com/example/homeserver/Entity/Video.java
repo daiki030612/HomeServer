@@ -43,6 +43,15 @@ public class Video {
 
 	private String thumbnailPath;
 
+	@Column(name = "custom_thumbnail_name")
+	private String customThumbnailName;
+
+	@Column(name = "custom_thumbnail_content_type")
+	private String customThumbnailContentType;
+
+	@Column(name = "custom_thumbnail_version")
+	private Long customThumbnailVersion;
+
 	private String folderName;
 
 	@Column(name = "created_at")

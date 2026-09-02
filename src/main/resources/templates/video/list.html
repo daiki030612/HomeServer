@@ -211,7 +211,7 @@
 					<a class="video-card-link" th:href="@{/videos/view/{id}(id=${video.id})}">
 						<div class="thumbnail-link">
 
-						<img class="thumbnail" th:src="@{'/thumbnails/' + ${video.thumbnailName}}"
+						<img class="thumbnail" th:src="@{/videos/{id}/thumbnail(id=${video.id},v=${video.customThumbnailVersion})}"
 							th:alt="${video.title}" loading="lazy">
 
 						<div class="play-overlay">
@@ -265,6 +265,15 @@
 							<a class="video-download-link" th:href="@{/videos/{id}/download(id=${video.id})}">
 								ダウンロード
 							</a>
+							<button type="button" class="menu-action-button thumbnail-change-button"
+								th:data-id="${video.id}" th:data-title="${video.title}"
+								th:data-upload-url="@{/videos/{id}/thumbnail(id=${video.id})}"
+								onclick="openThumbnailPicker(event, this)">サムネイルを変更</button>
+							<button type="button" class="menu-action-button thumbnail-reset-button"
+								th:hidden="${video.customThumbnailName == null}"
+								th:data-id="${video.id}"
+								th:data-reset-url="@{/videos/{id}/thumbnail/reset(id=${video.id})}"
+								onclick="resetCustomThumbnail(event, this)">サムネイルを元に戻す</button>
 
 							<!-- 名前・タグ編集 -->
 							<a href="#" class="edit-video-button" th:data-id="${video.id}"
@@ -510,6 +519,8 @@
 
 
 		<!-- JavaScript -->
+		<input id="thumbnailFileInput" type="file" name="thumbnail"
+			accept="image/jpeg,image/png,image/webp" hidden onchange="uploadSelectedThumbnail(this)">
 		<div id="favoriteStatus" class="favorite-status" role="status" aria-live="polite"></div>
 		<script th:src="@{/js/video/video-list.js}"></script>
 

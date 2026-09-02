@@ -158,7 +158,7 @@
 
 				<a th:href="@{/videos/view/{id}(id=${related.id})}">
 
-					<img th:src="@{'/thumbnails/' + ${related.thumbnailName}}" class="related-thumbnail">
+					<img th:src="@{/videos/{id}/thumbnail(id=${related.id},v=${related.customThumbnailVersion})}" class="related-thumbnail">
 
 
 					<div class="related-title" th:text="${related.title}">

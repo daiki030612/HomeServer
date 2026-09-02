@@ -38,6 +38,9 @@ public class VideoService {
 	private ThumbnailService thumbnailService;
 
 	@Autowired
+	private CustomThumbnailService customThumbnailService;
+
+	@Autowired
 	private VideoProbeService videoProbeService;
 
 	@Autowired
@@ -417,6 +420,8 @@ public class VideoService {
 			deleteAndConfirm(thumbnailFile);
 
 		}
+
+		customThumbnailService.deleteForVideo(video);
 
 		// DB削除
 
