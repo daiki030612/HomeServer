@@ -74,7 +74,7 @@
 
 .gallery-filters {
 	display: grid;
-	grid-template-columns: minmax(180px, 1fr) 160px 160px auto;
+	grid-template-columns: minmax(180px, 1fr) 150px 150px 156px auto;
 	gap: 10px;
 	align-items: end;
 	margin-bottom: 24px;
@@ -101,6 +101,26 @@
 
 .filter-submit {
 	min-height: 43px;
+}
+
+.favorite-filter-control {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 43px;
+	margin-top: 6px;
+	padding: 8px 11px;
+	border: 1px solid #353a48;
+	border-radius: 10px;
+	background: #0f1117;
+	color: var(--text);
+}
+
+.gallery-filters .favorite-filter-control input {
+	width: 18px;
+	min-height: 18px;
+	margin: 0;
+	accent-color: var(--accent);
 }
 
 .section-heading {
@@ -196,6 +216,68 @@
 .video-card {
 	position: relative;
 	overflow: visible;
+}
+
+.favorite-button {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	z-index: 3;
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	padding: 0;
+	border: 1px solid rgba(255, 255, 255, .28);
+	border-radius: 50%;
+	background: rgba(9, 10, 13, .7);
+	box-shadow: 0 5px 16px rgba(0, 0, 0, .28);
+	color: #fff;
+	font: inherit;
+	font-size: 25px;
+	line-height: 1;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+
+.favorite-button.is-favorite {
+	color: #fb7185;
+	border-color: rgba(251, 113, 133, .7);
+	background: rgba(44, 12, 20, .86);
+}
+
+.favorite-button:focus-visible {
+	outline: 3px solid rgba(159, 122, 234, .75);
+	outline-offset: 2px;
+}
+
+.favorite-button:disabled {
+	cursor: wait;
+	opacity: .72;
+}
+
+.favorite-status {
+	position: fixed;
+	right: max(16px, env(safe-area-inset-right));
+	bottom: calc(16px + env(safe-area-inset-bottom));
+	z-index: 1200;
+	max-width: min(360px, calc(100vw - 32px));
+	padding: 11px 14px;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--surface-raised);
+	box-shadow: var(--shadow-float);
+	color: var(--text);
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(8px);
+	transition: opacity .18s ease, transform .18s ease;
+}
+
+.favorite-status.show {
+	opacity: 1;
+	transform: translateY(0);
 }
 
 .video-card-link {

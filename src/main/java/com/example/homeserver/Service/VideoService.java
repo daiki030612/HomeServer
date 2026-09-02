@@ -148,6 +148,33 @@ public class VideoService {
 		upload(file, folderId, ImportProgressListener.NOOP);
 	}
 
+	public Video setFavorite(Long id, boolean favorite) {
+		Video video = videoRepository.findById(id).orElse(null);
+		if (video == null) {
+			return null;
+		}
+		video.setFavorite(favorite);
+		return videoRepository.save(video);
+	}
+
+	public List<Video> findLibraryVideos(
+			Long folderId,
+			String keyword,
+			String tag,
+			boolean favoriteOnly,
+			String sort) {
+		return videoRepository.findLibraryVideos(
+				folderId,
+				normalizeFilter(keyword),
+				normalizeFilter(tag),
+				favoriteOnly,
+				videoSort(sort));
+	}
+
+	private String normalizeFilter(String value) {
+		return value == null ? "" : value.trim();
+	}
+
 	private Long upload(MultipartFile file, Long folderId, ImportProgressListener progressListener) {
 		Path savePath = null;
 		Path adoptedVideoPath = null;

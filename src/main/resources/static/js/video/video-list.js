@@ -1,5 +1,78 @@
 /*
  * =========================
+ * ワンタッチお気に入り
+ * =========================
+ */
+
+function updateVideoFavorite(event, button) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (button.disabled) return;
+
+    const previous = button.dataset.favorite === "true";
+    const desired = !previous;
+    setFavoriteButtonState(button, desired);
+    button.disabled = true;
+
+    sendFavoriteUpdate(button.dataset.url, desired)
+        .then(function(response) {
+            if (!response.ok) throw new Error("お気に入りを更新できませんでした");
+            return response.json();
+        })
+        .then(function(result) {
+            setFavoriteButtonState(button, result.favorite === true);
+        })
+        .catch(function(error) {
+            console.error(error);
+            setFavoriteButtonState(button, previous);
+            showFavoriteStatus("お気に入りを更新できませんでした。通信状態を確認してください。");
+        })
+        .finally(function() {
+            button.disabled = false;
+        });
+}
+
+function sendFavoriteUpdate(url, favorite) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+    if (!url || !csrfToken || !csrfHeader) {
+        return Promise.reject(new Error("お気に入り更新に必要な情報を取得できません"));
+    }
+
+    return fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+            "Content-Type": "application/json",
+            [csrfHeader]: csrfToken
+        },
+        body: JSON.stringify({ favorite: favorite })
+    });
+}
+
+function setFavoriteButtonState(button, favorite) {
+    button.dataset.favorite = String(favorite);
+    button.classList.toggle("is-favorite", favorite);
+    button.setAttribute("aria-pressed", String(favorite));
+    button.setAttribute("aria-label", favorite ? "お気に入りから削除" : "お気に入りに追加");
+    button.querySelector("span").textContent = favorite ? "♥" : "♡";
+}
+
+let favoriteStatusTimer;
+function showFavoriteStatus(message) {
+    const status = document.getElementById("favoriteStatus");
+    if (!status) return;
+    status.textContent = message;
+    status.classList.add("show");
+    clearTimeout(favoriteStatusTimer);
+    favoriteStatusTimer = setTimeout(function() {
+        status.classList.remove("show");
+    }, 3600);
+}
+
+/*
+ * =========================
  * 動画メニュー
  * =========================
  */

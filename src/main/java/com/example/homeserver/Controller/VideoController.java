@@ -17,6 +17,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -62,6 +63,7 @@ public class VideoController {
 	        @RequestParam(required = false) String tagDeleteError,
 	        @RequestParam(required = false) String keyword,
 	        @RequestParam(required = false) String tag,
+	        @RequestParam(defaultValue = "false") boolean favorite,
 	        @RequestParam(defaultValue = "newest") String sort,
 	        Model model){
 		
@@ -77,26 +79,9 @@ public class VideoController {
 		model.addAttribute("keyword", keyword);
 		model.addAttribute("sort", sort);
 		model.addAttribute("selectedTag", tag);
+		model.addAttribute("favoriteOnly", favorite);
 
-		List<Video> videos;
-
-		if (tag != null && !tag.isBlank() && keyword != null && !keyword.isBlank()) {
-
-			videos = videoService.searchVideosByTag(keyword, tag, sort);
-
-		} else if (tag != null && !tag.isBlank()) {
-
-		    videos = videoService.getVideosByTag(tag, sort);
-
-		} else if (keyword == null || keyword.isBlank()) {
-
-		    videos = videoService.getAllVideos(sort);
-
-		} else {
-
-		    videos = videoService.searchVideos(keyword, sort);
-
-		}
+		List<Video> videos = videoService.findLibraryVideos(null, keyword, tag, favorite, sort);
 
 		model.addAttribute("videos", videos);
 
@@ -139,6 +124,7 @@ public class VideoController {
 	        @PathVariable Long id,
 	        @RequestParam(required = false) String keyword,
 	        @RequestParam(required = false) String tag,
+	        @RequestParam(defaultValue = "false") boolean favorite,
 	        @RequestParam(defaultValue = "newest") String sort,
 	        Model model) {
 
@@ -154,30 +140,7 @@ public class VideoController {
 	    // フォルダ内動画取得
 	    // =========================
 
-	    List<Video> videos;
-
-	    if (tag != null && !tag.isBlank() && keyword != null && !keyword.isBlank()) {
-
-	        videos = videoService.searchVideosByFolderAndTag(id, keyword, tag, sort);
-
-	    } else if (tag != null && !tag.isBlank()) {
-
-	        videos = videoService.getVideosByFolderAndTag(id, tag, sort);
-
-	    } else if (keyword == null || keyword.isBlank()) {
-
-	        // 検索なし
-	        videos = videoService.getVideosByFolder(id, sort);
-
-	    } else {
-
-	        // フォルダ内検索
-	        videos = videoService.searchVideosByFolder(
-	                id,
-	                keyword,
-	                sort
-	        );
-	    }
+	    List<Video> videos = videoService.findLibraryVideos(id, keyword, tag, favorite, sort);
 
 	    // =========================
 	    // フォルダ情報
@@ -225,6 +188,8 @@ public class VideoController {
 	            "selectedTag",
 	            tag
 	    );
+
+	    model.addAttribute("favoriteOnly", favorite);
 
 	    // 登録済みタグ
 	    model.addAttribute(
@@ -380,6 +345,20 @@ public class VideoController {
 		return "redirect:/videos";
 
 	}
+
+	@PostMapping("/{id}/favorite")
+	public ResponseEntity<FavoriteResponse> updateFavorite(
+			@PathVariable Long id,
+			@RequestBody FavoriteRequest request) {
+		Video video = videoService.setFavorite(id, request.favorite());
+		if (video == null) {
+			return ResponseEntity.notFound().build();
+		}
+		return ResponseEntity.ok(new FavoriteResponse(video.getId(), video.isFavorite()));
+	}
+
+	private record FavoriteRequest(boolean favorite) { }
+	private record FavoriteResponse(Long id, boolean favorite) { }
 
 	// =========================
 	// 名前変更画面

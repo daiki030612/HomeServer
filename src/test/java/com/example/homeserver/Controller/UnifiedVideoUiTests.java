@@ -134,7 +134,7 @@ class UnifiedVideoUiTests {
 				"margin-bottom: 25px",
 				".toolbar-actions",
 				".button.primary",
-				"grid-template-columns: minmax(180px, 1fr) 160px 160px auto",
+				"grid-template-columns: minmax(180px, 1fr) 150px 150px 156px auto",
 				"min-height: 43px",
 				"padding: 9px",
 				"@media (max-width: 700px)",

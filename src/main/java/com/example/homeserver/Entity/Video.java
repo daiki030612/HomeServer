@@ -48,6 +48,9 @@ public class Video {
 	@Column(name = "created_at")
 	private LocalDateTime createdAt;
 
+	@Column(nullable = false, columnDefinition = "boolean default false")
+	private boolean favorite;
+
 	@ManyToOne
 	@JoinColumn(name = "folder_id")
 	private Folder folder;

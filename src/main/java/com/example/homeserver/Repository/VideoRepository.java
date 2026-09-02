@@ -15,6 +15,28 @@ import com.example.homeserver.Entity.Video;
 @Repository
 public interface VideoRepository extends JpaRepository<Video, Long> {
 	boolean existsByFileName(String fileName);
+
+	@Query("""
+		SELECT DISTINCT v
+		FROM Video v
+		LEFT JOIN v.tags searchableTag
+		WHERE ((:folderId IS NULL AND v.folder IS NULL) OR v.folder.id = :folderId)
+		  AND (:favoriteOnly = false OR v.favorite = true)
+		  AND (:tag IS NULL OR :tag = '' OR EXISTS (
+		      SELECT selectedTag.id FROM Video taggedVideo
+		      JOIN taggedVideo.tags selectedTag
+		      WHERE taggedVideo = v AND selectedTag.name = :tag
+		  ))
+		  AND (:keyword IS NULL OR :keyword = '' OR
+		      LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+		      LOWER(searchableTag.name) LIKE LOWER(CONCAT('%', :keyword, '%')))
+		""")
+	List<Video> findLibraryVideos(
+			@Param("folderId") Long folderId,
+			@Param("keyword") String keyword,
+			@Param("tag") String tag,
+			@Param("favoriteOnly") boolean favoriteOnly,
+			Sort sort);
 	
 	@Query("""
 		    SELECT DISTINCT v

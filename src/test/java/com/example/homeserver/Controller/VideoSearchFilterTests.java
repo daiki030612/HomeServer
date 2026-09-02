@@ -38,12 +38,13 @@ class VideoSearchFilterTests {
 	void rootSearchCombinesKeywordTagAndSortAndRetainsConditions() {
 		ExtendedModelMap model = new ExtendedModelMap();
 
-		String view = controller.getAllVideos(null, "旅行", "日常", "oldest", model);
+		String view = controller.getAllVideos(null, "旅行", "日常", true, "oldest", model);
 
 		assertThat(view).isEqualTo("video/list");
-		verify(videoService).searchVideosByTag("旅行", "日常", "oldest");
+		verify(videoService).findLibraryVideos(null, "旅行", "日常", true, "oldest");
 		assertThat(model.get("keyword")).isEqualTo("旅行");
 		assertThat(model.get("selectedTag")).isEqualTo("日常");
+		assertThat(model.get("favoriteOnly")).isEqualTo(true);
 		assertThat(model.get("sort")).isEqualTo("oldest");
 	}
 
@@ -55,12 +56,23 @@ class VideoSearchFilterTests {
 		when(folderService.getBreadcrumbs(42L)).thenReturn(List.of());
 		ExtendedModelMap model = new ExtendedModelMap();
 
-		String view = controller.openFolder(42L, "旅行", "日常", "nameAsc", model);
+		String view = controller.openFolder(42L, "旅行", "日常", true, "nameAsc", model);
 
 		assertThat(view).isEqualTo("video/list");
-		verify(videoService).searchVideosByFolderAndTag(42L, "旅行", "日常", "nameAsc");
+		verify(videoService).findLibraryVideos(42L, "旅行", "日常", true, "nameAsc");
 		assertThat(model.get("keyword")).isEqualTo("旅行");
 		assertThat(model.get("selectedTag")).isEqualTo("日常");
 		assertThat(model.get("sort")).isEqualTo("nameAsc");
+		assertThat(model.get("favoriteOnly")).isEqualTo(true);
+	}
+
+	@Test
+	void omittedFavoriteFilterKeepsAllVideos() {
+		ExtendedModelMap model = new ExtendedModelMap();
+
+		controller.getAllVideos(null, null, null, false, "newest", model);
+
+		verify(videoService).findLibraryVideos(null, null, null, false, "newest");
+		assertThat(model.get("favoriteOnly")).isEqualTo(false);
 	}
 }

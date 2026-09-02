@@ -10,6 +10,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.file.Path;
@@ -28,6 +29,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.homeserver.Config.SecurityConfig;
+import com.example.homeserver.Entity.Video;
 import com.example.homeserver.Auth.SharedAuthTokenService;
 import com.example.homeserver.Repository.TagRepository;
 import com.example.homeserver.Service.FolderService;
@@ -105,6 +107,40 @@ class VideoStreamingSecurityTests {
 						org.hamcrest.Matchers.containsString("MEDIA_AUTH="),
 						org.hamcrest.Matchers.containsString("Max-Age=0"),
 						org.hamcrest.Matchers.containsString("Path=/"))));
+	}
+
+	@Test
+	void favoriteUpdateRequiresAuthenticationAndCsrf() throws Exception {
+		mockMvc.perform(post("/videos/1/favorite")
+				.contentType("application/json").content("{\"favorite\":true}"))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(post("/videos/1/favorite").with(user("viewer"))
+				.contentType("application/json").content("{\"favorite\":true}"))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void favoriteUpdateWithCsrfReturnsDesiredState() throws Exception {
+		Video video = new Video();
+		video.setId(1L);
+		video.setFavorite(true);
+		when(videoService.setFavorite(1L, true)).thenReturn(video);
+
+		mockMvc.perform(post("/videos/1/favorite").with(user("viewer")).with(csrf().asHeader())
+				.contentType("application/json").content("{\"favorite\":true}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.favorite").value(true));
+	}
+
+	@Test
+	void favoriteUpdateReturns404ForMissingVideo() throws Exception {
+		when(videoService.setFavorite(999L, true)).thenReturn(null);
+
+		mockMvc.perform(post("/videos/999/favorite").with(user("viewer")).with(csrf())
+				.contentType("application/json").content("{\"favorite\":true}"))
+				.andExpect(status().isNotFound());
 	}
 
 	@Test

@@ -115,6 +115,13 @@
 
 				</select>
 			</label>
+			<label class="favorite-filter">
+				<span>お気に入り</span>
+				<span class="favorite-filter-control">
+					<input type="checkbox" name="favorite" value="true" th:checked="${favoriteOnly}">
+					お気に入りのみ
+				</span>
+			</label>
 			<button type="submit" class="button primary filter-submit">検索</button>
 		</form>
 
@@ -226,6 +233,17 @@
 							</div>
 						</div>
 					</a>
+
+					<button type="button" class="favorite-button"
+						th:classappend="${video.favorite} ? ' is-favorite'"
+						th:data-favorite="${video.favorite}"
+						th:data-url="@{/videos/{id}/favorite(id=${video.id})}"
+						th:aria-pressed="${video.favorite}"
+						th:aria-label="${video.favorite} ? 'お気に入りから削除' : 'お気に入りに追加'"
+						draggable="false" onpointerdown="event.stopPropagation()"
+						onclick="updateVideoFavorite(event, this)">
+						<span aria-hidden="true" th:text="${video.favorite} ? '♥' : '♡'">♡</span>
+					</button>
 
 
 					<!-- 動画メニュー -->
@@ -491,6 +509,7 @@
 
 
 		<!-- JavaScript -->
+		<div id="favoriteStatus" class="favorite-status" role="status" aria-live="polite"></div>
 		<script th:src="@{/js/video/video-list.js}"></script>
 
 	</div>
