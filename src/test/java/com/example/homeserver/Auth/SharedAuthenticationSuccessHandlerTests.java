@@ -31,6 +31,20 @@ class SharedAuthenticationSuccessHandlerTests {
         new SharedAuthenticationSuccessHandler(cookies, properties).onAuthenticationSuccess(request, response, authentication);
         assertThat(response.getRedirectedUrl()).isEqualTo("/videos");
     }
+    @Test void appliesConfiguredParentDomainToSharedCookie() throws Exception {
+        SharedAuthProperties properties = properties();
+        properties.setCookieDomain(".media.example.com");
+        SharedAuthCookieService cookies = new SharedAuthCookieService(properties, new SharedAuthTokenService(properties));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
+        request.setSecure(true);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        var authentication = UsernamePasswordAuthenticationToken.authenticated("viewer", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        cookies.issue(request, response, authentication);
+        assertThat(response.getHeader("Set-Cookie"))
+                .contains("Domain=.media.example.com")
+                .contains("Secure")
+                .contains("HttpOnly");
+    }
     private static SharedAuthProperties properties() {
         SharedAuthProperties properties = new SharedAuthProperties();
         properties.setSecret("test-only-shared-auth-secret-32-characters-minimum");
