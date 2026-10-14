@@ -126,6 +126,16 @@ class CustomThumbnailServiceTests {
 	}
 
 	@Test
+	void rejectsCustomDirectorySymlinkOutsideStorage() throws Exception {
+		Path outside = Files.createDirectory(temporaryDirectory.resolve("outside"));
+		Files.createSymbolicLink(root.resolve("custom"), outside);
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.upload(7L, image("png", "image/png", 4, 4)));
+		assertThat(outside).isEmptyDirectory();
+	}
+
+	@Test
 	void resizesLargeDecodedImageWithoutUpscalingSmallImages() throws Exception {
 		service.upload(7L, image("jpeg", "image/jpeg", 1400, 700));
 		BufferedImage result = ImageIO.read(root.resolve("custom").resolve(video.getCustomThumbnailName()).toFile());

@@ -315,14 +315,25 @@ public class CustomThumbnailService {
 
 	private boolean isWithinRoot(Path path, boolean existing) {
 		try {
-			Path verifiedRoot = Files.exists(root) ? root.toRealPath() : root;
+			Path verifiedRoot = canonicalize(root);
 			Path verified = existing && Files.exists(path, LinkOption.NOFOLLOW_LINKS)
 					? path.toRealPath()
-					: (Files.exists(path.getParent()) ? path.getParent().toRealPath().resolve(path.getFileName()).normalize() : path);
+					: canonicalize(path);
 			return verified.startsWith(verifiedRoot);
 		} catch (IOException e) {
 			return false;
 		}
+	}
+
+	private Path canonicalize(Path path) throws IOException {
+		Path normalized = path.toAbsolutePath().normalize();
+		Path existing = normalized;
+		while (existing != null && !Files.exists(existing, LinkOption.NOFOLLOW_LINKS)) {
+			existing = existing.getParent();
+		}
+		if (existing == null) return normalized;
+		Path realExisting = existing.toRealPath();
+		return realExisting.resolve(existing.relativize(normalized)).normalize();
 	}
 
 	private void ensureSafeDirectory(Path directory) throws IOException {
