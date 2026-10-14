@@ -10,10 +10,17 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,10 +38,13 @@ import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
+import com.example.homeserver.Service.VideoUrlImportJobService;
+import com.example.homeserver.Service.VideoUrlImportJobStatus;
+import com.example.homeserver.Service.VideoUrlImportStage;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
-@WebMvcTest(VideoController.class)
+@WebMvcTest(value = VideoController.class, properties = "shared-auth.secret=test-only-shared-auth-secret-32-characters-minimum")
 @Import(SecurityConfig.class)
 class VideoUploadCsrfTests {
 
@@ -55,6 +65,9 @@ class VideoUploadCsrfTests {
 
     @MockBean
     private TagService tagService;
+
+    @MockBean
+    private VideoUrlImportJobService videoUrlImportJobService;
 
     @Test
     void uploadWithCsrfHeaderSucceeds() throws Exception {
@@ -83,6 +96,64 @@ class VideoUploadCsrfTests {
 
         mockMvc.perform(multipart("/videos/upload")
                         .file(video)
+                        .with(user("uploader")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(videoService);
+    }
+
+    @Test
+    void moveWithCsrfMovesVideoToSelectedFolder() throws Exception {
+        mockMvc.perform(post("/videos/move")
+                        .param("videoId", "7")
+                        .param("folderId", "42")
+                        .with(user("uploader"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        verify(videoService).moveVideo(7L, 42L);
+    }
+
+    @Test
+    void moveWithCsrfCanMoveVideoToRoot() throws Exception {
+        mockMvc.perform(post("/videos/move")
+                        .param("videoId", "7")
+                        .with(user("uploader"))
+                        .with(csrf().asHeader()))
+                .andExpect(status().isOk());
+
+        verify(videoService).moveVideo(7L, null);
+    }
+
+    @Test
+    void moveWithoutCsrfIsForbidden() throws Exception {
+        mockMvc.perform(post("/videos/move")
+                        .param("videoId", "7")
+                        .param("folderId", "42")
+                        .with(user("uploader")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(videoService);
+    }
+
+    @Test
+    void editWithCsrfUpdatesTitleAndTags() throws Exception {
+        mockMvc.perform(post("/videos/edit")
+                        .param("id", "7")
+                        .param("title", "変更後の名前")
+                        .param("tags", "旅行,iPhone")
+                        .with(user("uploader"))
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        verify(videoService).updateVideo(7L, "変更後の名前", "旅行,iPhone");
+    }
+
+    @Test
+    void editWithoutCsrfIsForbidden() throws Exception {
+        mockMvc.perform(post("/videos/edit")
+                        .param("id", "7")
+                        .param("title", "変更後の名前")
                         .with(user("uploader")))
                 .andExpect(status().isForbidden());
 
@@ -145,4 +216,108 @@ class VideoUploadCsrfTests {
                 .andExpect(content().string(
                         "アップロードに失敗しました。保存先の空き容量とサーバー設定を確認してください。"));
     }
+
+    @Test
+    void urlImportRequiresCsrfAndInvokesService() throws Exception {
+        UUID jobId = UUID.randomUUID();
+		when(videoUrlImportJobService.startOrReuse("https://example.com/video.mp4", null, "uploader"))
+				.thenReturn(new VideoUrlImportJobService.StartResult(jobId, false));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/videos/import-url")
+                        .param("url", "https://example.com/video.mp4")
+                        .with(user("uploader"))
+                        .with(csrf()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.jobId").value(jobId.toString()));
+
+		verify(videoUrlImportJobService).startOrReuse("https://example.com/video.mp4", null, "uploader");
+    }
+
+    @Test
+    void urlImportWithoutCsrfIsForbidden() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/videos/import-url")
+                        .param("url", "https://example.com/video.mp4")
+                        .with(user("uploader")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void progressEndpointReturnsOnlyCurrentUsersJob() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        var progress = new VideoUrlImportJobService.JobProgress(jobId, VideoUrlImportStage.DOWNLOADING,
+                "動画をダウンロードしています", 4, 10, 40, 2048, Instant.now(), null, null);
+        when(videoUrlImportJobService.find(jobId, "uploader")).thenReturn(Optional.of(progress));
+
+        mockMvc.perform(get("/videos/import-url/progress/{jobId}", jobId).with(user("uploader")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DOWNLOADING"))
+                .andExpect(jsonPath("$.completedSegments").value(4))
+                .andExpect(jsonPath("$.percentage").value(40));
+    }
+
+    @Test
+    void progressEndpointRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/videos/import-url/progress/{jobId}", UUID.randomUUID()))
+                .andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    void unknownOrOtherUsersJobReturnsNotFound() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        when(videoUrlImportJobService.find(jobId, "uploader")).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/videos/import-url/progress/{jobId}", jobId).with(user("uploader")))
+                .andExpect(status().isNotFound());
+    }
+
+	@Test
+	void jobListReturnsOwnerScopedJsonIncludingQueuedPositionAndHistory() throws Exception {
+		UUID queuedId = UUID.randomUUID();
+		UUID completedId = UUID.randomUUID();
+		Instant now = Instant.parse("2026-08-20T12:00:00Z");
+		var queued = new VideoUrlImportJobService.JobProgress(queuedId, VideoUrlImportStage.URL_ANALYZING,
+				VideoUrlImportJobStatus.QUEUED, "実行待ちです", 0, 0, 0, 0, now, null, null,
+				null, null, null, false, "https://example.com/queued", 1);
+		var completed = new VideoUrlImportJobService.JobProgress(completedId, VideoUrlImportStage.COMPLETED,
+				VideoUrlImportJobStatus.COMPLETED, "保存が完了しました", 0, 0, 100, 10, now, now, now,
+				null, null, 42L, false, "https://example.com/completed", null);
+		when(videoUrlImportJobService.recent("uploader")).thenReturn(List.of(queued, completed));
+
+		mockMvc.perform(get("/videos/import-url/jobs").with(user("uploader"))
+				.header("Accept", "application/json"))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith("application/json"))
+				.andExpect(jsonPath("$[0].state").value("QUEUED"))
+				.andExpect(jsonPath("$[0].queuePosition").value(1))
+				.andExpect(jsonPath("$[1].state").value("COMPLETED"))
+				.andExpect(jsonPath("$[1].videoId").value(42));
+		verify(videoUrlImportJobService).recent("uploader");
+	}
+
+	@Test
+	void jobListRequiresAuthentication() throws Exception {
+		mockMvc.perform(get("/videos/import-url/jobs")).andExpect(status().is3xxRedirection());
+		verifyNoInteractions(videoUrlImportJobService);
+	}
+
+	@Test
+	void cancelImportRequiresCsrf() throws Exception {
+		UUID jobId = UUID.randomUUID();
+		mockMvc.perform(post("/videos/import-url/{jobId}/cancel", jobId).with(user("uploader")))
+				.andExpect(status().isForbidden());
+		verifyNoInteractions(videoUrlImportJobService);
+	}
+
+	@Test
+	void cancelImportWithCsrfInvokesOwnerScopedService() throws Exception {
+		UUID jobId = UUID.randomUUID();
+		var progress = new VideoUrlImportJobService.JobProgress(jobId, VideoUrlImportStage.CANCELLED,
+				"キャンセルしました", 0, 0, 0, 0, Instant.now(), Instant.now(), null);
+		when(videoUrlImportJobService.cancel(jobId, "uploader")).thenReturn(Optional.of(progress));
+		mockMvc.perform(post("/videos/import-url/{jobId}/cancel", jobId)
+				.with(user("uploader")).with(csrf()))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED"));
+		verify(videoUrlImportJobService).cancel(jobId, "uploader");
+	}
 }

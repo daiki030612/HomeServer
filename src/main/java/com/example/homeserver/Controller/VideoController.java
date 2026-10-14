@@ -2,18 +2,22 @@ package com.example.homeserver.Controller;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.security.Principal;
 import java.util.List;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,6 +30,7 @@ import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
 import com.example.homeserver.Service.VideoStreamService;
+import com.example.homeserver.Service.VideoUrlImportJobService;
 import com.example.homeserver.Service.InvalidVideoFileException;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 
@@ -46,6 +51,9 @@ public class VideoController {
 	@Autowired
 	private TagService tagService;
 
+	@Autowired
+	private VideoUrlImportJobService videoUrlImportJobService;
+
 	// =========================
 	// 動画一覧表示
 	// =========================
@@ -55,6 +63,7 @@ public class VideoController {
 	        @RequestParam(required = false) String tagDeleteError,
 	        @RequestParam(required = false) String keyword,
 	        @RequestParam(required = false) String tag,
+	        @RequestParam(defaultValue = "false") boolean favorite,
 	        @RequestParam(defaultValue = "newest") String sort,
 	        Model model){
 		
@@ -69,22 +78,10 @@ public class VideoController {
 		
 		model.addAttribute("keyword", keyword);
 		model.addAttribute("sort", sort);
+		model.addAttribute("selectedTag", tag);
+		model.addAttribute("favoriteOnly", favorite);
 
-		List<Video> videos;
-
-		if (tag != null && !tag.isBlank()) {
-
-		    videos = videoService.getVideosByTag(tag, sort);
-
-		} else if (keyword == null || keyword.isBlank()) {
-
-		    videos = videoService.getAllVideos(sort);
-
-		} else {
-
-		    videos = videoService.searchVideos(keyword, sort);
-
-		}
+		List<Video> videos = videoService.findLibraryVideos(null, keyword, tag, favorite, sort);
 
 		model.addAttribute("videos", videos);
 
@@ -126,6 +123,8 @@ public class VideoController {
 	public String openFolder(
 	        @PathVariable Long id,
 	        @RequestParam(required = false) String keyword,
+	        @RequestParam(required = false) String tag,
+	        @RequestParam(defaultValue = "false") boolean favorite,
 	        @RequestParam(defaultValue = "newest") String sort,
 	        Model model) {
 
@@ -141,22 +140,7 @@ public class VideoController {
 	    // フォルダ内動画取得
 	    // =========================
 
-	    List<Video> videos;
-
-	    if (keyword == null || keyword.isBlank()) {
-
-	        // 検索なし
-	        videos = videoService.getVideosByFolder(id, sort);
-
-	    } else {
-
-	        // フォルダ内検索
-	        videos = videoService.searchVideosByFolder(
-	                id,
-	                keyword,
-	                sort
-	        );
-	    }
+	    List<Video> videos = videoService.findLibraryVideos(id, keyword, tag, favorite, sort);
 
 	    // =========================
 	    // フォルダ情報
@@ -199,6 +183,13 @@ public class VideoController {
 	            "sort",
 	            sort
 	    );
+
+	    model.addAttribute(
+	            "selectedTag",
+	            tag
+	    );
+
+	    model.addAttribute("favoriteOnly", favorite);
 
 	    // 登録済みタグ
 	    model.addAttribute(
@@ -273,12 +264,18 @@ public class VideoController {
 	@GetMapping("/upload")
 	public String uploadPage(
 			@RequestParam(value = "folderId", required = false) Long folderId,
-			Model model) {
+			Model model, Principal principal) {
 		if (folderId != null) {
 			Folder folder = folderService.getFolderById(folderId);
 			if (folder == null) return "redirect:/videos";
 			model.addAttribute("currentFolder", folder);
 		}
+		var urlImportJobs = videoUrlImportJobService.recent(principal.getName());
+		model.addAttribute("urlImportJobs", urlImportJobs);
+		model.addAttribute("urlImportActiveJobs", urlImportJobs.stream()
+				.filter(job -> !job.state().terminal()).toList());
+		model.addAttribute("urlImportHistoryJobs", urlImportJobs.stream()
+				.filter(job -> job.state().terminal()).toList());
 
 		return "video/upload";
 
@@ -304,6 +301,37 @@ public class VideoController {
 	                "アップロードに失敗しました。保存先の空き容量とサーバー設定を確認してください。");
 	    }
 	}
+
+	@PostMapping("/import-url")
+	public ResponseEntity<?> importFromUrl(
+			@RequestParam("url") String url,
+			@RequestParam(value = "folderId", required = false) Long folderId,
+			Principal principal) {
+		var result = videoUrlImportJobService.startOrReuse(url, folderId, principal.getName());
+		return ResponseEntity.status(HttpStatus.ACCEPTED).body(new ImportJobStarted(result.jobId(), result.reused()));
+	}
+
+	@GetMapping("/import-url/progress/{jobId}")
+	public ResponseEntity<VideoUrlImportJobService.JobProgress> importProgress(
+			@PathVariable UUID jobId, Principal principal) {
+		return videoUrlImportJobService.find(jobId, principal.getName())
+				.map(ResponseEntity::ok)
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	@GetMapping("/import-url/jobs")
+	public ResponseEntity<List<VideoUrlImportJobService.JobProgress>> importJobs(Principal principal) {
+		return ResponseEntity.ok(videoUrlImportJobService.recent(principal.getName()));
+	}
+
+	@PostMapping("/import-url/{jobId}/cancel")
+	public ResponseEntity<VideoUrlImportJobService.JobProgress> cancelImport(
+			@PathVariable UUID jobId, Principal principal) {
+		return videoUrlImportJobService.cancel(jobId, principal.getName())
+				.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	private record ImportJobStarted(UUID jobId, boolean reused) { }
 	// =========================
 	// 動画削除
 	// =========================
@@ -317,6 +345,20 @@ public class VideoController {
 		return "redirect:/videos";
 
 	}
+
+	@PostMapping("/{id}/favorite")
+	public ResponseEntity<FavoriteResponse> updateFavorite(
+			@PathVariable Long id,
+			@RequestBody FavoriteRequest request) {
+		Video video = videoService.setFavorite(id, request.favorite());
+		if (video == null) {
+			return ResponseEntity.notFound().build();
+		}
+		return ResponseEntity.ok(new FavoriteResponse(video.getId(), video.isFavorite()));
+	}
+
+	private record FavoriteRequest(boolean favorite) { }
+	private record FavoriteResponse(Long id, boolean favorite) { }
 
 	// =========================
 	// 名前変更画面

@@ -3,9 +3,10 @@
 
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 	<title>Upload Video</title>
 	<link rel="stylesheet" th:href="@{/css/style.css}">
+	<link rel="stylesheet" th:href="@{/css/design-system.css}">
 	<link rel="stylesheet" th:href="@{/css/upload.css}">
 	<meta name="_csrf" th:content="${_csrf.token}">
 	<meta name="_csrf_header" th:content="${_csrf.headerName}">
@@ -26,7 +27,7 @@
 				お気に入りの動画を、プライベートライブラリへ追加します。
 			</p>
 
-			<form id="upload-form" enctype="multipart/form-data">
+			<form id="upload-form" th:action="@{/videos/upload}" method="post" enctype="multipart/form-data">
 				<input type="hidden"
 				       id="folderId"
 				       name="folderId"
@@ -88,6 +89,81 @@
 
 			</div>
 
+		</section>
+
+		<section id="url-import" class="upload-card url-import-card">
+			<p class="eyebrow">IMPORT FROM URL</p>
+			<h2>動画ページURLから保存</h2>
+			<p class="upload-description">
+				公開されたMP4・m3u8 URL、または標準のvideo/source/og:videoを含むページに対応します。
+			</p>
+			<form id="url-import-form" th:action="@{/videos/import-url}" method="post">
+				<input type="hidden" name="folderId"
+				       th:value="${currentFolder != null ? currentFolder.id : ''}">
+				<label for="video-url">動画ページURL</label>
+				<input id="video-url" class="url-input" type="url" name="url"
+				       inputmode="url" autocomplete="url" required
+				       placeholder="https://example.com/video-page">
+				<button id="url-import-button" type="submit" class="upload-button">URLから保存</button>
+			</form>
+			<div id="url-import-progress" class="url-import-progress" role="status" aria-live="polite" hidden>
+				<p id="url-import-status" class="url-import-status">URLを解析しています</p>
+				<div class="progress-bar-background" aria-hidden="true">
+					<div id="url-import-progress-bar" class="progress-bar"></div>
+				</div>
+				<div class="url-import-progress-summary">
+					<strong id="url-import-percentage">0%</strong>
+					<span id="url-import-segments">セグメント情報を取得中</span>
+				</div>
+				<p id="url-import-bytes" class="url-import-detail">0 B ダウンロード済み</p>
+				<p id="url-import-elapsed" class="url-import-detail"></p>
+			</div>
+		</section>
+
+		<section class="upload-card url-job-history" aria-labelledby="url-job-history-title">
+			<p class="eyebrow">RECENT JOBS</p>
+			<h2 id="url-job-history-title">URL保存タスク</h2>
+			<h3 class="url-job-group-title">実行中・待機中</h3>
+			<div id="url-job-active-list" class="url-job-list">
+				<article class="url-job" th:each="job : ${urlImportActiveJobs}" th:attr="data-job-id=${job.jobId}">
+					<div class="url-job-heading">
+						<p class="url-job-url" th:text="${job.inputUrl}">URL</p>
+						<span class="url-job-state" th:attr="data-state=${job.state}"
+							  th:text="${job.state.name() == 'QUEUED' ? '待機中 #' + job.queuePosition : job.state}">QUEUED</span>
+					</div>
+					<p class="url-job-operation" th:text="${job.message}">実行待ちです</p>
+					<p class="url-job-time">
+						<span th:text="${job.startedAt != null ? '開始 ' + #temporals.format(job.startedAt, 'yyyy/MM/dd HH:mm') : '作成 ' + #temporals.format(job.createdAt, 'yyyy/MM/dd HH:mm')}"></span>
+						<span th:if="${job.finishedAt != null}" th:text="${' / 完了 ' + #temporals.format(job.finishedAt, 'yyyy/MM/dd HH:mm')}"></span>
+					</p>
+					<progress max="100" th:value="${job.percentage}"></progress>
+					<div class="url-job-actions">
+						<a th:if="${job.videoId != null}" th:href="@{'/videos/view/' + ${job.videoId}}">保存した動画を開く</a>
+						<button th:if="${!job.state.terminal()}" type="button" class="url-job-cancel"
+								th:attr="data-job-id=${job.jobId}">キャンセル</button>
+					</div>
+				</article>
+				<p class="url-job-empty" th:if="${#lists.isEmpty(urlImportActiveJobs)}">実行中または待機中のタスクはありません。</p>
+			</div>
+			<h3 class="url-job-group-title">履歴</h3>
+			<div id="url-job-history-list" class="url-job-list">
+				<article class="url-job" th:each="job : ${urlImportHistoryJobs}" th:attr="data-job-id=${job.jobId}">
+					<div class="url-job-heading">
+						<p class="url-job-url" th:text="${job.inputUrl}">URL</p>
+						<span class="url-job-state" th:attr="data-state=${job.state}" th:text="${job.state}">COMPLETED</span>
+					</div>
+					<p class="url-job-operation" th:text="${job.errorMessage != null ? job.errorMessage : job.message}">処理結果</p>
+					<p class="url-job-time">
+						<span th:text="${job.startedAt != null ? '開始 ' + #temporals.format(job.startedAt, 'yyyy/MM/dd HH:mm') : '作成 ' + #temporals.format(job.createdAt, 'yyyy/MM/dd HH:mm')}"></span>
+						<span th:if="${job.finishedAt != null}" th:text="${' / 完了 ' + #temporals.format(job.finishedAt, 'yyyy/MM/dd HH:mm')}"></span>
+					</p>
+					<progress max="100" th:value="${job.percentage}"></progress>
+					<div class="url-job-actions">
+						<a th:if="${job.videoId != null}" th:href="@{'/videos/view/' + ${job.videoId}}">保存した動画を開く</a>
+					</div>
+				</article>
+				<p class="url-job-empty" th:if="${#lists.isEmpty(urlImportHistoryJobs)}">履歴はまだありません。</p>
+			</div>
 		</section>
 
 	</main>

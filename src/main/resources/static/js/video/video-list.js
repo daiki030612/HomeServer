@@ -1,5 +1,205 @@
 /*
  * =========================
+ * ワンタッチお気に入り
+ * =========================
+ */
+
+function updateVideoFavorite(event, button) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (button.disabled) return;
+
+    const previous = button.dataset.favorite === "true";
+    const desired = !previous;
+    setFavoriteButtonState(button, desired);
+    button.disabled = true;
+
+    sendFavoriteUpdate(button.dataset.url, desired)
+        .then(function(response) {
+            if (!response.ok) throw new Error("お気に入りを更新できませんでした");
+            return response.json();
+        })
+        .then(function(result) {
+            setFavoriteButtonState(button, result.favorite === true);
+            if (result.favorite !== true && isFavoriteFilterActive()) {
+                button.closest(".video-card")?.remove();
+                updateVisibleVideoCount();
+            }
+        })
+        .catch(function(error) {
+            console.error(error);
+            setFavoriteButtonState(button, previous);
+            showFavoriteStatus("お気に入りを更新できませんでした。通信状態を確認してください。");
+        })
+        .finally(function() {
+            button.disabled = false;
+        });
+}
+
+function applyFavoriteFilter(checkbox) {
+    const form = checkbox.closest("form");
+    if (!form) return;
+
+    const params = new URLSearchParams(new FormData(form));
+    if (checkbox.checked) {
+        params.set("favorite", "true");
+    } else {
+        params.delete("favorite");
+    }
+
+    ["keyword", "tag"].forEach(function(name) {
+        if (!params.get(name)) params.delete(name);
+    });
+
+    const query = params.toString();
+    window.location.assign(window.location.pathname + (query ? "?" + query : ""));
+}
+
+function isFavoriteFilterActive() {
+    return new URLSearchParams(window.location.search).get("favorite") === "true";
+}
+
+function updateVisibleVideoCount() {
+    const count = document.querySelectorAll(".video-card").length;
+    const label = document.querySelector(".video-grid")?.previousElementSibling?.querySelector("span");
+    if (label) label.textContent = count + "件";
+}
+
+function sendFavoriteUpdate(url, favorite) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+    if (!url || !csrfToken || !csrfHeader) {
+        return Promise.reject(new Error("お気に入り更新に必要な情報を取得できません"));
+    }
+
+    return fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+            "Content-Type": "application/json",
+            [csrfHeader]: csrfToken
+        },
+        body: JSON.stringify({ favorite: favorite })
+    });
+}
+
+function setFavoriteButtonState(button, favorite) {
+    button.dataset.favorite = String(favorite);
+    button.classList.toggle("is-favorite", favorite);
+    button.setAttribute("aria-pressed", String(favorite));
+    button.setAttribute("aria-label", favorite ? "お気に入りから削除" : "お気に入りに追加");
+    button.querySelector("span").textContent = favorite ? "♥" : "♡";
+}
+
+let favoriteStatusTimer;
+function showFavoriteStatus(message) {
+    const status = document.getElementById("favoriteStatus");
+    if (!status) return;
+    status.textContent = message;
+    status.classList.add("show");
+    clearTimeout(favoriteStatusTimer);
+    favoriteStatusTimer = setTimeout(function() {
+        status.classList.remove("show");
+    }, 3600);
+}
+
+/*
+ * =========================
+ * カスタムサムネイル
+ * =========================
+ */
+
+let selectedThumbnailButton = null;
+
+function openThumbnailPicker(event, button) {
+    event.preventDefault();
+    event.stopPropagation();
+    selectedThumbnailButton = button;
+    closeVideoMenus();
+    const input = document.getElementById("thumbnailFileInput");
+    input.value = "";
+    input.click();
+}
+
+function uploadSelectedThumbnail(input) {
+    const file = input.files && input.files[0];
+    const button = selectedThumbnailButton;
+    selectedThumbnailButton = null;
+    if (!file || !button) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+        showFavoriteStatus("サムネイル画像は10MB以下にしてください。");
+        input.value = "";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("thumbnail", file, file.name);
+    showFavoriteStatus("サムネイルをアップロードしています…");
+    sendThumbnailRequest(button.dataset.uploadUrl, formData)
+        .then(readThumbnailResponse)
+        .then(function(result) {
+            updateCardThumbnail(button.dataset.id, button.dataset.uploadUrl, result);
+            showFavoriteStatus("サムネイルを変更しました。");
+        })
+        .catch(function(error) {
+            console.error(error);
+            showFavoriteStatus(error.message || "サムネイルを変更できませんでした。");
+        })
+        .finally(function() { input.value = ""; });
+}
+
+function resetCustomThumbnail(event, button) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (button.disabled) return;
+    button.disabled = true;
+    showFavoriteStatus("サムネイルを元に戻しています…");
+    sendThumbnailRequest(button.dataset.resetUrl)
+        .then(readThumbnailResponse)
+        .then(function(result) {
+            const uploadUrl = button.closest(".menu-dropdown").querySelector(".thumbnail-change-button").dataset.uploadUrl;
+            updateCardThumbnail(button.dataset.id, uploadUrl, result);
+            showFavoriteStatus("自動生成サムネイルへ戻しました。");
+        })
+        .catch(function(error) {
+            console.error(error);
+            showFavoriteStatus(error.message || "サムネイルを元に戻せませんでした。");
+        })
+        .finally(function() { button.disabled = false; });
+}
+
+function sendThumbnailRequest(url, formData) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+    if (!url || !csrfToken || !csrfHeader) return Promise.reject(new Error("CSRFトークンを取得できません"));
+    return fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { [csrfHeader]: csrfToken },
+        body: formData
+    });
+}
+
+function readThumbnailResponse(response) {
+    return response.json().catch(function() { return {}; }).then(function(body) {
+        if (!response.ok) throw new Error(body.message || "サムネイルを更新できませんでした。");
+        return body;
+    });
+}
+
+function updateCardThumbnail(videoId, uploadUrl, result) {
+    const card = document.querySelector('.video-card[data-id="' + CSS.escape(String(videoId)) + '"]');
+    if (!card) return;
+    const image = card.querySelector(".thumbnail");
+    if (image) image.src = uploadUrl + "?v=" + encodeURIComponent(result.version || Date.now());
+    const reset = card.querySelector(".thumbnail-reset-button");
+    if (reset) reset.hidden = result.custom !== true;
+}
+
+/*
+ * =========================
  * 動画メニュー
  * =========================
  */
@@ -9,19 +209,66 @@ function toggleMenu(event, button) {
     event.preventDefault();
     event.stopPropagation();
 
-    const menu = button.nextElementSibling;
+    const owner = button.parentElement;
+    const menu = owner.querySelector(".menu-dropdown");
+	guardMenuInteraction(menu);
+    const willOpen = !menu.classList.contains("show");
 
-    document
-        .querySelectorAll(".menu-dropdown")
-        .forEach(function(otherMenu) {
+    closeFolderMenus();
+    closeVideoMenus(menu);
 
-            if (otherMenu !== menu) {
-                otherMenu.classList.remove("show");
-            }
+    if (!willOpen) {
+        closeVideoMenu(menu);
+        return;
+    }
 
-        });
+    const touchMenu = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+    menu.querySelector(".action-sheet-title").textContent =
+        owner.closest(".video-card").querySelector(".video-card-title").textContent;
 
-    menu.classList.toggle("show");
+    if (touchMenu) {
+        menu._videoMenuOwner = owner;
+        menu.classList.add("touch-action-sheet");
+        document.body.appendChild(menu);
+        document.getElementById("videoMenuBackdrop").classList.add("show");
+    }
+
+    menu.classList.add("show");
+}
+
+function guardMenuInteraction(menu) {
+    if (!menu || menu.dataset.interactionGuard === "true") return;
+    menu.dataset.interactionGuard = "true";
+    ["pointerdown", "click"].forEach(function(type) {
+        menu.addEventListener(type, function(event) { event.stopPropagation(); });
+    });
+    menu.querySelectorAll("form").forEach(function(form) {
+        form.addEventListener("submit", function(event) { event.stopPropagation(); });
+    });
+}
+
+function closeVideoMenu(menu) {
+    if (!menu) return;
+
+    const wasTouchMenu = menu.classList.contains("touch-action-sheet");
+    menu.classList.remove("show", "touch-action-sheet");
+    if (menu._videoMenuOwner) {
+        menu._videoMenuOwner.appendChild(menu);
+        menu._videoMenuOwner = null;
+    }
+    if (wasTouchMenu) {
+        document.getElementById("videoMenuBackdrop")?.classList.remove("show");
+    }
+}
+
+function closeVideoMenus(exceptMenu) {
+    document.querySelectorAll(".menu-dropdown").forEach(function(menu) {
+        if (menu !== exceptMenu) closeVideoMenu(menu);
+    });
+
+    if (!exceptMenu || !exceptMenu.classList.contains("touch-action-sheet")) {
+        document.getElementById("videoMenuBackdrop")?.classList.remove("show");
+    }
 }
 
 
@@ -31,19 +278,9 @@ function toggleMenu(event, button) {
  */
 
 document.addEventListener("click", function(event) {
-
-    if (!event.target.closest(".video-menu")) {
-
-        document
-            .querySelectorAll(".menu-dropdown")
-            .forEach(function(menu) {
-
-                menu.classList.remove("show");
-
-            });
-
+    if (!event.target.closest(".video-menu") && !event.target.closest(".menu-dropdown")) {
+        closeVideoMenus();
     }
-
 });
 
 
@@ -375,6 +612,8 @@ function openEditModalFromButton(
     event.preventDefault();
     event.stopPropagation();
 
+    closeVideoMenus();
+
 
     const id =
         button.dataset.id;
@@ -488,13 +727,6 @@ function closeFolderModal() {
 
 }
 
-function closeFolderModal() {
-
-    document
-        .getElementById("folderModal")
-        .classList.remove("show");
-}
-
 // =========================
 // フォルダー移動モーダル
 // =========================
@@ -504,26 +736,33 @@ function openMoveFolderModal(event, button) {
     event.preventDefault();
     event.stopPropagation();
 
+    closeVideoMenus();
 
-    // 動画IDを取得
-    const videoId =
-        button.dataset.id;
+    const currentFolderId = button.dataset.currentFolderId || "";
 
+    document.getElementById("moveVideoId").value = button.dataset.id;
+    document.getElementById("moveCurrentFolderId").value = currentFolderId;
+    document.getElementById("moveTargetFolderId").value = "";
+    document.getElementById("moveVideoTitle").textContent = button.dataset.title || "";
+    document.getElementById("moveCurrentFolder").textContent =
+        button.dataset.currentFolderName || "ライブラリ（ルート）";
 
-    // hiddenに保存
-    document
-        .getElementById("moveVideoId")
-        .value = videoId;
+    const status = document.getElementById("moveFolderStatus");
+    status.textContent = "";
+    status.className = "move-folder-status";
 
+    const submit = document.getElementById("moveFolderSubmit");
+    submit.disabled = true;
+    submit.textContent = "移動";
 
-    // メニューを閉じる
-    document
-        .querySelectorAll(".menu-dropdown")
-        .forEach(function(menu) {
-
-            menu.classList.remove("show");
-
-        });
+    document.querySelectorAll(".move-destination-button").forEach(function(destination) {
+        const isCurrent = (destination.dataset.folderId || "") === currentFolderId;
+        destination.disabled = isCurrent;
+        destination.classList.toggle("current", isCurrent);
+        destination.classList.remove("selected");
+        destination.setAttribute("aria-selected", "false");
+        destination.toggleAttribute("aria-current", isCurrent);
+    });
 
 
     // モーダルを表示
@@ -553,58 +792,23 @@ function closeMoveFolderModal() {
 
 function moveVideo() {
 
-    const videoId =
-        document
-            .getElementById("moveVideoId")
-            .value;
+    const videoId = document.getElementById("moveVideoId").value;
+    const folderId = document.getElementById("moveTargetFolderId").value;
+    const currentFolderId = document.getElementById("moveCurrentFolderId").value;
+    const status = document.getElementById("moveFolderStatus");
+    const submit = document.getElementById("moveFolderSubmit");
 
-
-    const folderId =
-        document
-            .getElementById("moveFolderId")
-            .value;
-
-
-    // FormData
-    const formData =
-        new FormData();
-
-
-    formData.append(
-        "videoId",
-        videoId
-    );
-
-
-    // folderIdが空なら
-    // メインページへ移動
-    if (folderId !== "") {
-
-        formData.append(
-            "folderId",
-            folderId
-        );
-
+    if (folderId === currentFolderId) {
+        status.textContent = "現在と同じ場所には移動できません。";
+        status.className = "move-folder-status error";
+        submit.disabled = true;
+        return;
     }
 
+    submit.disabled = true;
+    submit.textContent = "移動中…";
 
-    // CSRFトークン取得
-    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
-    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
-
-    const options = {
-        method: "POST",
-        body: formData
-    };
-
-    if (csrfToken && csrfHeader) {
-        options.headers = {
-            [csrfHeader]: csrfToken
-        };
-    }
-
-    // POST
-    fetch("/videos/move", options)
+    sendVideoMove(videoId, folderId)
         .then(function(response) {
 
             if (!response.ok) {
@@ -614,19 +818,19 @@ function moveVideo() {
                 );
 
             }
-
-
-            // 移動後にページ更新
-            window.location.reload();
+            status.textContent = "移動しました。画面を更新します。";
+            status.className = "move-folder-status success";
+            window.setTimeout(function() { window.location.reload(); }, 350);
 
         })
         .catch(function(error) {
 
             console.error(error);
 
-            alert(
-                "動画の移動に失敗しました。"
-            );
+            status.textContent = "動画の移動に失敗しました。もう一度お試しください。";
+            status.className = "move-folder-status error";
+            submit.disabled = false;
+            submit.textContent = "移動";
 
         });
 
@@ -642,25 +846,81 @@ function toggleFolderMenu(event, button) {
     event.stopPropagation();
 
 
-    const menu =
-        button.nextElementSibling;
+    const menu = button.parentElement.querySelector(".folder-menu-dropdown");
+	guardMenuInteraction(menu);
+    const willOpen = !menu.classList.contains("show");
 
+    closeFolderMenus(menu);
+	closeVideoMenus();
 
-    document
-        .querySelectorAll(".menu-dropdown")
-        .forEach(function(otherMenu) {
+    if (!willOpen) {
+		closeFolderMenu(menu);
+        return;
+    }
 
-            if (otherMenu !== menu) {
+    menu.classList.remove("open-upward");
+	const touchMenu = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+	if (touchMenu) {
+		menu._folderMenuOwner = button.parentElement;
+		menu.classList.add("touch-action-sheet");
+		document.body.appendChild(menu);
+		document.getElementById("videoMenuBackdrop")?.classList.add("show");
+	}
+    menu.classList.add("show");
+    button.setAttribute("aria-expanded", "true");
 
-                otherMenu.classList.remove("show");
+	if (!touchMenu && menu.getBoundingClientRect().bottom > window.innerHeight - 12) {
+        menu.classList.add("open-upward");
+    }
 
-            }
+    const firstItem = menu.querySelector('[role="menuitem"]');
+    if (firstItem) firstItem.focus({ preventScroll: true });
 
-        });
+}
 
+function selectMoveDestination(button) {
 
-    menu.classList.toggle("show");
+    if (button.disabled) {
+        return;
+    }
 
+    document.getElementById("moveTargetFolderId").value = button.dataset.folderId || "";
+
+    document.querySelectorAll(".move-destination-button").forEach(function(destination) {
+        const selected = destination === button;
+        destination.classList.toggle("selected", selected);
+        destination.setAttribute("aria-selected", selected ? "true" : "false");
+    });
+
+    const status = document.getElementById("moveFolderStatus");
+    status.textContent = "移動先: " + (button.dataset.folderName || "ライブラリ（ルート）");
+    status.className = "move-folder-status";
+    document.getElementById("moveFolderSubmit").disabled = false;
+}
+
+function closeFolderMenus(exceptMenu) {
+    document.querySelectorAll(".folder-menu-dropdown.show").forEach(function(menu) {
+        if (menu === exceptMenu) return;
+		closeFolderMenu(menu);
+    });
+	if (!exceptMenu) document.getElementById("videoMenuBackdrop")?.classList.remove("show");
+}
+
+function closeFolderMenu(menu) {
+	if (!menu) return;
+	menu.classList.remove("show", "open-upward", "touch-action-sheet");
+	if (menu._folderMenuOwner) {
+		menu._folderMenuOwner.appendChild(menu);
+		menu._folderMenuOwner = null;
+	}
+	const button = menu.parentElement?.querySelector(".folder-menu-button");
+	if (button) button.setAttribute("aria-expanded", "false");
+	document.getElementById("videoMenuBackdrop")?.classList.remove("show");
+}
+
+function closeAllMediaMenus() {
+	closeVideoMenus();
+	closeFolderMenus();
 }
 
 
@@ -698,6 +958,8 @@ function openRenameFolderModal(
         .getElementById("renameFolderModal")
         .classList.add("show");
 
+    closeFolderMenus();
+
 }
 
 
@@ -713,98 +975,6 @@ function closeRenameFolderModal() {
 
 }
 // =========================
-// フォルダメニュー
-// =========================
-
-let folderLongPressTimer = null;
-
-
-// =========================
-// PC：右クリック
-// =========================
-
-function openFolderMenu(event, card) {
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const menu =
-        card.querySelector(".folder-menu-dropdown");
-
-
-    // 他のメニューを閉じる
-
-    document
-        .querySelectorAll(".folder-menu-dropdown")
-        .forEach(function(otherMenu) {
-
-            if (otherMenu !== menu) {
-
-                otherMenu.classList.remove("show");
-
-            }
-
-        });
-
-
-    // メニュー位置
-
-    const rect =
-        card.getBoundingClientRect();
-
-    menu.style.left =
-        (event.clientX - rect.left) + "px";
-
-    menu.style.top =
-        (event.clientY - rect.top) + "px";
-
-
-    menu.classList.add("show");
-
-}
-
-
-// =========================
-// スマホ：長押し開始
-// =========================
-
-function startFolderLongPress(event, card) {
-
-    folderLongPressTimer =
-        setTimeout(function() {
-
-            const touch =
-                event.touches[0];
-
-            openFolderMenu(
-                {
-                    preventDefault: function() {},
-                    stopPropagation: function() {},
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                },
-                card
-            );
-
-        }, 600);
-
-}
-
-
-// =========================
-// 長押しキャンセル
-// =========================
-
-function cancelFolderLongPress() {
-
-    clearTimeout(
-        folderLongPressTimer
-    );
-
-}
-
-
-// =========================
 // フォルダ外クリックで閉じる
 // =========================
 
@@ -812,24 +982,38 @@ document.addEventListener(
     "click",
     function(event) {
 
-        if (
-            !event.target.closest(".folder-card")
-        ) {
-
-            document
-                .querySelectorAll(
-                    ".folder-menu-dropdown"
-                )
-                .forEach(function(menu) {
-
-                    menu.classList.remove("show");
-
-                });
-
-        }
+        if (!event.target.closest(".folder-menu-dropdown")
+                && !event.target.closest(".folder-menu-button")) closeFolderMenus();
 
     }
 );
+
+// モーダルの背景タップとEscapeキーで、安全に操作をキャンセルする。
+document.querySelectorAll(".modal").forEach(function(modal) {
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) {
+            modal.classList.remove("show");
+        }
+    });
+});
+
+document.addEventListener("keydown", function(event) {
+    if (event.key !== "Escape") return;
+
+    document.querySelectorAll(".modal.show").forEach(function(modal) {
+        modal.classList.remove("show");
+    });
+
+    closeVideoMenus();
+    document.querySelectorAll(".folder-menu-dropdown.show")
+        .forEach(function(menu) { menu.classList.remove("show", "open-upward"); });
+
+    document.querySelectorAll(".folder-menu-button[aria-expanded='true']")
+        .forEach(function(button) {
+            button.setAttribute("aria-expanded", "false");
+            button.focus({ preventScroll: true });
+        });
+});
 
 // =========================
 // 動画ドラッグ＆ドロップ
@@ -991,41 +1175,7 @@ function dropVideo(event, folder) {
 
 function moveVideoToFolder(videoId, folderId) {
 
-    const formData = new FormData();
-
-    formData.append(
-        "videoId",
-        videoId
-    );
-
-
-    // フォルダーIDがある場合だけ送信
-    if (folderId !== null && folderId !== undefined && folderId !== "") {
-
-        formData.append(
-            "folderId",
-            folderId
-        );
-
-    }
-
-
-    // CSRFトークン取得
-    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
-    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
-
-    const options = {
-        method: "POST",
-        body: formData
-    };
-
-    if (csrfToken && csrfHeader) {
-        options.headers = {
-            [csrfHeader]: csrfToken
-        };
-    }
-
-    fetch("/videos/move", options)
+    sendVideoMove(videoId, folderId)
         .then(function(response) {
 
             if (!response.ok) {
@@ -1050,6 +1200,37 @@ function moveVideoToFolder(videoId, folderId) {
 
         });
 
+}
+
+function sendVideoMove(videoId, folderId) {
+
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+    if (!csrfToken || !csrfHeader) {
+        return Promise.reject(new Error("CSRFトークンを取得できません"));
+    }
+
+    const formData = new FormData();
+    formData.append("videoId", videoId);
+
+    if (folderId !== null && folderId !== undefined && folderId !== "") {
+        formData.append("folderId", folderId);
+    }
+
+    return fetch(getVideoMoveUrl(), {
+        method: "POST",
+        headers: { [csrfHeader]: csrfToken },
+        body: formData
+    });
+}
+
+function getVideoMoveUrl() {
+    const url = document.querySelector('meta[name="video-move-url"]')?.content;
+    if (!url) {
+        throw new Error("動画移動先URLを取得できません");
+    }
+    return url;
 }
 
 // =========================

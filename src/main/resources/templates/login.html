@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <title>Login - Home Server</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" th:href="@{/css/design-system.css}">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 </head>
 <body class="login-page">
     <div class="login-container">
@@ -21,6 +22,7 @@
         </div>
 
         <form th:action="@{/login}" method="post">
+            <input type="hidden" name="continue" th:value="${continueUrl}">
             <div class="form-group">
                 <label for="username">ユーザー名</label>
                 <input type="text" id="username" name="username" required autofocus>

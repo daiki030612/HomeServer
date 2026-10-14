@@ -1,6 +1,7 @@
 package com.example.homeserver.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -37,6 +38,9 @@ public class VideoService {
 	private ThumbnailService thumbnailService;
 
 	@Autowired
+	private CustomThumbnailService customThumbnailService;
+
+	@Autowired
 	private VideoProbeService videoProbeService;
 
 	@Autowired
@@ -67,7 +71,7 @@ public class VideoService {
 		if ("oldest".equals(sort)) {
 
 			return videoRepository
-					.findByFolderIsNullOrderByCreatedAtAsc();
+					.findByFolderIsNullOrderByCreatedAtAscIdAsc();
 
 		}
 
@@ -88,7 +92,7 @@ public class VideoService {
 		// デフォルト：新しい順
 
 		return videoRepository
-				.findByFolderIsNullOrderByCreatedAtDesc();
+				.findByFolderIsNullOrderByCreatedAtDescIdDesc();
 	}
 
 	// 動画保存
@@ -144,11 +148,43 @@ public class VideoService {
 
 	// 動画アップロード
 	public void upload(MultipartFile file, Long folderId) {
+		upload(file, folderId, ImportProgressListener.NOOP);
+	}
+
+	public Video setFavorite(Long id, boolean favorite) {
+		Video video = videoRepository.findById(id).orElse(null);
+		if (video == null) {
+			return null;
+		}
+		video.setFavorite(favorite);
+		return videoRepository.save(video);
+	}
+
+	public List<Video> findLibraryVideos(
+			Long folderId,
+			String keyword,
+			String tag,
+			boolean favoriteOnly,
+			String sort) {
+		return videoRepository.findLibraryVideos(
+				folderId,
+				normalizeFilter(keyword),
+				normalizeFilter(tag),
+				favoriteOnly,
+				videoSort(sort));
+	}
+
+	private String normalizeFilter(String value) {
+		return value == null ? "" : value.trim();
+	}
+
+	private Long upload(MultipartFile file, Long folderId, ImportProgressListener progressListener) {
 		Path savePath = null;
 		Path adoptedVideoPath = null;
 		Path thumbnailPath = null;
 		UploadArtifacts artifacts = null;
 		boolean databaseSaved = false;
+		Long savedVideoId = null;
 
 		try {
 				// ファイルが空でないかチェック
@@ -245,6 +281,7 @@ public class VideoService {
 			// サムネイル保存先
 			thumbnailPath = artifacts.track(resolveWithinStorage(thumbnailStorageRoot, thumbnailName));
 
+			progressListener.onThumbnailGenerating();
 			thumbnailService.createThumbnail(
 					adoptedVideoPath.toString(),
 					thumbnailPath.toString());
@@ -285,7 +322,9 @@ public class VideoService {
 
 			}
 
+			progressListener.onSaving();
 			videoRepository.saveAndFlush(video);
+			savedVideoId = video.getId();
 			databaseSaved = true;
 			artifacts.cleanupAfterSuccess(adoptedVideoPath, thumbnailPath);
 
@@ -304,8 +343,54 @@ public class VideoService {
 					throw unsupported;
 				}
 				throw new RuntimeException("アップロードに失敗しました。", e);
-			}
+		}
+		return savedVideoId;
 
+	}
+
+	public void importDownloadedVideo(Path downloadedFile, String pageTitle, Long folderId) {
+		importDownloadedVideo(downloadedFile, pageTitle, folderId, ImportProgressListener.NOOP);
+	}
+
+	public Long importDownloadedVideo(Path downloadedFile, String pageTitle, Long folderId,
+			ImportProgressListener progressListener) {
+		if (downloadedFile == null || !Files.isRegularFile(downloadedFile)) {
+			throw new IllegalArgumentException("Downloaded video file is missing");
+		}
+		String safeTitle = pageTitle == null ? "URL import" : pageTitle
+				.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_")
+				.replaceAll("\\s+", " ").trim();
+		if (safeTitle.isBlank()) safeTitle = "URL import";
+		if (safeTitle.length() > 180) safeTitle = safeTitle.substring(0, 180).trim();
+		return upload(new PathMultipartFile(downloadedFile, safeTitle + ".mp4"), folderId,
+				progressListener == null ? ImportProgressListener.NOOP : progressListener);
+	}
+
+	public interface ImportProgressListener {
+		ImportProgressListener NOOP = new ImportProgressListener() { };
+		default void onThumbnailGenerating() { }
+		default void onSaving() { }
+	}
+
+	private static final class PathMultipartFile implements MultipartFile {
+		private final Path source;
+		private final String originalFilename;
+
+		private PathMultipartFile(Path source, String originalFilename) {
+			this.source = source;
+			this.originalFilename = originalFilename;
+		}
+
+		@Override public String getName() { return "file"; }
+		@Override public String getOriginalFilename() { return originalFilename; }
+		@Override public String getContentType() { return "video/mp4"; }
+		@Override public boolean isEmpty() { try { return Files.size(source) == 0; } catch (IOException e) { return true; } }
+		@Override public long getSize() { try { return Files.size(source); } catch (IOException e) { return 0; } }
+		@Override public byte[] getBytes() throws IOException { return Files.readAllBytes(source); }
+		@Override public InputStream getInputStream() throws IOException { return Files.newInputStream(source); }
+		@Override public void transferTo(java.io.File destination) throws IOException {
+			Files.copy(source, destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		}
 	}
 
 	// 動画削除
@@ -335,6 +420,8 @@ public class VideoService {
 			deleteAndConfirm(thumbnailFile);
 
 		}
+
+		customThumbnailService.deleteForVideo(video);
 
 		// DB削除
 
@@ -601,7 +688,7 @@ public class VideoService {
 		if ("oldest".equals(sort)) {
 
 			return videoRepository
-					.findByFolderIdOrderByCreatedAtAsc(folderId);
+					.findByFolderIdOrderByCreatedAtAscIdAsc(folderId);
 
 		}
 
@@ -622,37 +709,17 @@ public class VideoService {
 		// デフォルト：新しい順
 
 		return videoRepository
-				.findByFolderIdOrderByCreatedAtDesc(folderId);
+				.findByFolderIdOrderByCreatedAtDescIdDesc(folderId);
 	}
 
 	public List<Video> searchVideos(
 			String keyword,
 			String sort) {
 
-		Sort sortOption;
-
-		if ("oldest".equals(sort)) {
-
-			sortOption = Sort.by("createdAt").ascending();
-
-		} else if ("nameAsc".equals(sort)) {
-
-			sortOption = Sort.by("title").ascending();
-
-		} else if ("nameDesc".equals(sort)) {
-
-			sortOption = Sort.by("title").descending();
-
-		} else {
-
-			// デフォルト：新しい順
-			sortOption = Sort.by("createdAt").descending();
-		}
-
 		return videoRepository
 				.searchByTitleOrTag(
 						keyword,
-						sortOption);
+						videoSort(sort));
 	}
 
 	public List<Video> searchVideosByFolder(
@@ -660,31 +727,27 @@ public class VideoService {
 			String keyword,
 			String sort) {
 
-		Sort sortOption;
-
-		if ("oldest".equals(sort)) {
-
-			sortOption = Sort.by("createdAt").ascending();
-
-		} else if ("nameAsc".equals(sort)) {
-
-			sortOption = Sort.by("title").ascending();
-
-		} else if ("nameDesc".equals(sort)) {
-
-			sortOption = Sort.by("title").descending();
-
-		} else {
-
-			// デフォルト：新しい順
-			sortOption = Sort.by("createdAt").descending();
-		}
-
 		return videoRepository
 				.searchByFolderAndTitleOrTag(
 						folderId,
 						keyword,
-						sortOption);
+						videoSort(sort));
+	}
+
+	public List<Video> searchVideosByTag(String keyword, String tag, String sort) {
+		return videoRepository.searchByTagAndTitleOrTag(tag, keyword, videoSort(sort));
+	}
+
+	public List<Video> searchVideosByFolderAndTag(
+			Long folderId,
+			String keyword,
+			String tag,
+			String sort) {
+		return videoRepository.searchByFolderAndTagAndTitleOrTag(
+				folderId,
+				tag,
+				keyword,
+				videoSort(sort));
 	}
 	
 	// =========================
@@ -717,34 +780,29 @@ public class VideoService {
 	        String tag,
 	        String sort) {
 
-	    Sort sortOption;
-
-	    if ("oldest".equals(sort)) {
-
-	        sortOption =
-	                Sort.by("createdAt").ascending();
-
-	    } else if ("nameAsc".equals(sort)) {
-
-	        sortOption =
-	                Sort.by("title").ascending();
-
-	    } else if ("nameDesc".equals(sort)) {
-
-	        sortOption =
-	                Sort.by("title").descending();
-
-	    } else {
-
-	        sortOption =
-	                Sort.by("createdAt").descending();
-
-	    }
-
 	    return videoRepository.findByTag(
 	            tag,
-	            sortOption
+	            videoSort(sort)
 	    );
+	}
+
+	public List<Video> getVideosByFolderAndTag(
+			Long folderId,
+			String tag,
+			String sort) {
+		return videoRepository.findByFolderAndTag(
+				folderId,
+				tag,
+				videoSort(sort));
+	}
+
+	private Sort videoSort(String sort) {
+		return switch (sort) {
+			case "oldest" -> Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id"));
+			case "nameAsc" -> Sort.by(Sort.Order.asc("title"), Sort.Order.asc("id"));
+			case "nameDesc" -> Sort.by(Sort.Order.desc("title"), Sort.Order.desc("id"));
+			default -> Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+		};
 	}
 
 }

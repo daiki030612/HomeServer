@@ -1,6 +1,7 @@
 package com.example.homeserver.Entity;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -13,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import lombok.Getter;
@@ -23,6 +25,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Video {
+	private static final ZoneId HOME_SERVER_ZONE = ZoneId.of("Asia/Tokyo");
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,10 +43,22 @@ public class Video {
 
 	private String thumbnailPath;
 
+	@Column(name = "custom_thumbnail_name")
+	private String customThumbnailName;
+
+	@Column(name = "custom_thumbnail_content_type")
+	private String customThumbnailContentType;
+
+	@Column(name = "custom_thumbnail_version")
+	private Long customThumbnailVersion;
+
 	private String folderName;
 
 	@Column(name = "created_at")
 	private LocalDateTime createdAt;
+
+	@Column(nullable = false, columnDefinition = "boolean default false")
+	private boolean favorite;
 
 	@ManyToOne
 	@JoinColumn(name = "folder_id")
@@ -59,6 +74,13 @@ public class Video {
 	private Set<Tag> tags = new HashSet<>();
 
 	public Video() {
+	}
+
+	@PrePersist
+	void ensureCreatedAt() {
+		if (createdAt == null) {
+			createdAt = LocalDateTime.now(HOME_SERVER_ZONE);
+		}
 	}
 
 	public Video(

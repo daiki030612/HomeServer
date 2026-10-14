@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import org.springframework.stereotype.Component;
 
@@ -16,16 +17,28 @@ public class FfmpegProcessRunner {
 	private static final int MAX_ERROR_BYTES = 64 * 1024;
 
 	public ProcessResult run(List<String> command, Duration timeout) {
+		return run(command, timeout, () -> false);
+	}
+
+	public ProcessResult run(List<String> command, Duration timeout, BooleanSupplier cancellationRequested) {
 		Process process = null;
 		try {
 			process = start(command);
 			CompletableFuture<String> error = readLimited(process.getErrorStream());
 			CompletableFuture<Void> output = discard(process.getInputStream());
 
-			if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-				process.destroyForcibly();
-				process.waitFor();
-				throw new FfmpegTimeoutException("FFmpeg timed out");
+			long deadline = System.nanoTime() + timeout.toNanos();
+			while (!process.waitFor(250, TimeUnit.MILLISECONDS)) {
+				if (Thread.currentThread().isInterrupted()
+						|| (cancellationRequested != null && cancellationRequested.getAsBoolean())) {
+					process.destroy();
+					if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroyForcibly();
+					throw new VideoUrlImportCancelledException();
+				}
+				if (System.nanoTime() >= deadline) {
+					process.destroyForcibly(); process.waitFor();
+					throw new FfmpegTimeoutException("FFmpeg timed out");
+				}
 			}
 
 			output.join();
@@ -51,15 +64,21 @@ public class FfmpegProcessRunner {
 				byte[] buffer = new byte[4096];
 				byte[] retained = new byte[MAX_ERROR_BYTES];
 				int retainedLength = 0;
+				int writePosition = 0;
 				int read;
 				while ((read = stream.read(buffer)) != -1) {
-					int copy = Math.min(read, MAX_ERROR_BYTES - retainedLength);
-					if (copy > 0) {
-						System.arraycopy(buffer, 0, retained, retainedLength, copy);
-						retainedLength += copy;
+					for (int i = 0; i < read; i++) {
+						retained[writePosition] = buffer[i];
+						writePosition = (writePosition + 1) % MAX_ERROR_BYTES;
+						if (retainedLength < MAX_ERROR_BYTES) retainedLength++;
 					}
 				}
-				return new String(retained, 0, retainedLength, StandardCharsets.UTF_8);
+				byte[] ordered = new byte[retainedLength];
+				int start = retainedLength == MAX_ERROR_BYTES ? writePosition : 0;
+				for (int i = 0; i < retainedLength; i++) {
+					ordered[i] = retained[(start + i) % MAX_ERROR_BYTES];
+				}
+				return new String(ordered, StandardCharsets.UTF_8);
 			} catch (IOException e) {
 				throw new IllegalStateException(e);
 			}
