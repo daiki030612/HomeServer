@@ -18,6 +18,8 @@ SERVER_FORWARD_HEADERS_STRATEGY=framework
 
 Asset Manager iOSアプリは `https://video.media.example.com/videos` をWKWebViewで表示します。認証、ストリーミング、サムネイルの各エンドポイントは従来どおりSpring Securityの保護対象です。
 
+iOSの統合メディア画面はHomeServer用とImageGallery用のWKWebViewを同時に保持し、画面切り替え時にもCookie、履歴、一覧位置を維持します。Tailscale上でHTTP検証する場合はDebugビルドだけを使用し、同一ホストの8080/8081へ接続します。HTTP検証中は`SHARED_AUTH_COOKIE_SECURE=false`、Cookie Domainは空のままとし、HTTPS公開時には必ず`SHARED_AUTH_COOKIE_SECURE=true`と限定した親ドメインへ切り替えてください。
+
 VideoServerがログイン資格情報を検証し、VideoServerとImageGalleryの両方で利用できる短寿命の署名付きCookieを発行します。Cookieは`HttpOnly`、`SameSite=Lax`、`Path=/`で、ポート番号には依存しません。トークン寿命は`SHARED_AUTH_TOKEN_TTL`（既定値30分）で変更できます。
 
 ローカルで同じホスト名・異なるポートを使う場合、`SHARED_AUTH_COOKIE_DOMAIN` は空のままで構いません。リバースプロキシ配下では、ログイン後の戻り先を許可するために `IMAGE_APP_URL` を設定します。戻り先は現在のホスト、ImageGalleryの設定ポート、または設定済みImageGallery URLだけに制限されます。
