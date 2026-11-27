@@ -21,6 +21,18 @@ public class SharedAuthCookieFilter extends OncePerRequestFilter {
     private final SharedAuthTokenService tokens;
     private final SharedAuthProperties properties;
     private final AtomicBoolean configurationLogged = new AtomicBoolean();
+    private DirectAccessPolicy routes;
+
+    public SharedAuthCookieFilter(SharedAuthCookieService cookies, SharedAuthTokenService tokens,
+            SharedAuthProperties properties, DirectAccessPolicy routes) {
+        this(cookies, tokens, properties);
+        this.routes = routes;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return routes != null && routes.isDirect(request);
+    }
 
     public SharedAuthCookieFilter(SharedAuthCookieService cookies, SharedAuthTokenService tokens,
             SharedAuthProperties properties) {

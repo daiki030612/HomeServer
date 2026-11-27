@@ -18,11 +18,11 @@ SERVER_FORWARD_HEADERS_STRATEGY=framework
 
 Asset Manager iOSアプリは `https://video.media.example.com/videos` をWKWebViewで表示します。認証、ストリーミング、サムネイルの各エンドポイントは従来どおりSpring Securityの保護対象です。
 
-iOSの統合メディア画面はHomeServer用とImageGallery用のWKWebViewを同時に保持し、画面切り替え時にもCookie、履歴、一覧位置を維持します。Tailscale上でHTTP検証する場合はDebugビルドだけを使用し、同一ホストの8080/8081へ接続します。HTTP検証中は`SHARED_AUTH_COOKIE_SECURE=false`、Cookie Domainは空のままとし、HTTPS公開時には必ず`SHARED_AUTH_COOKIE_SECURE=true`と限定した親ドメインへ切り替えてください。
+iOSの統合メディア画面はHomeServer用とImageGallery用のWKWebViewを同時に保持し、画面切り替え時にもCookie、履歴、一覧位置を維持します。TailscaleのHTTP直接アクセスは、公開側の共通Cookieとは独立したホスト専用セッションで認証します。公開側の`SHARED_AUTH_COOKIE_SECURE`やCookie Domainを切り替える必要はありません。設定と確認手順は[Tailscale認証](docs/TAILSCALE_AUTH.md)を参照してください。
 
 VideoServerがログイン資格情報を検証し、VideoServerとImageGalleryの両方で利用できる短寿命の署名付きCookieを発行します。Cookieは`HttpOnly`、`SameSite=Lax`、`Path=/`で、ポート番号には依存しません。トークン寿命は`SHARED_AUTH_TOKEN_TTL`（既定値30分）で変更できます。
 
-ローカルで同じホスト名・異なるポートを使う場合、`SHARED_AUTH_COOKIE_DOMAIN` は空のままで構いません。リバースプロキシ配下では、ログイン後の戻り先を許可するために `IMAGE_APP_URL` を設定します。戻り先は現在のホスト、ImageGalleryの設定ポート、または設定済みImageGallery URLだけに制限されます。
+ローカルで同じホスト名・異なるポートを使う場合、`SHARED_AUTH_COOKIE_DOMAIN` は空のままで構いません。ImageGalleryへのログイン後の遷移を利用する場合は、ローカル環境でも `IMAGE_APP_URL` を明示してください。絶対URLの戻り先は、設定したImageGalleryのスキーム・ホスト・ポートの組合せだけに制限されます。
 
 `SERVER_FORWARD_HEADERS_STRATEGY=framework`は、Cloudflare Tunnel等の信頼できるリバースプロキシからの接続だけに限定して使用します。直接公開された接続で任意のForwardedヘッダーを受け入れないでください。
 
