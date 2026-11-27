@@ -45,9 +45,23 @@ class SharedAuthenticationSuccessHandlerTests {
                 .contains("Secure")
                 .contains("HttpOnly");
     }
+    @Test void doesNotTrustHostHeaderAsRedirectAllowlist() throws Exception {
+        SharedAuthProperties properties = properties();
+        properties.setImageUrl("");
+        SharedAuthCookieService cookies = new SharedAuthCookieService(properties, new SharedAuthTokenService(properties));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
+        request.setServerName("attacker.example");
+        request.setParameter("continue", "http://attacker.example:8081/gallery");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        var authentication = UsernamePasswordAuthenticationToken.authenticated("viewer", null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        new SharedAuthenticationSuccessHandler(cookies, properties).onAuthenticationSuccess(request, response, authentication);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/videos");
+    }
     private static SharedAuthProperties properties() {
         SharedAuthProperties properties = new SharedAuthProperties();
         properties.setSecret("test-only-shared-auth-secret-32-characters-minimum");
+        properties.setImageUrl("http://media.local:8081/gallery");
         return properties;
     }
 }
