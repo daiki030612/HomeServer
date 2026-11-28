@@ -26,6 +26,7 @@ import com.example.homeserver.Service.CustomThumbnailService;
 import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.InvalidThumbnailException;
 import com.example.homeserver.Service.InvalidVideoFileException;
+import com.example.homeserver.Service.VideoUploadException;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.UnsupportedVideoConversionException;
 import com.example.homeserver.Service.VideoService;
@@ -132,7 +133,11 @@ public class NativeMutationApiController {
         try {
             videos.upload(file, folderId);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "COMPLETED"));
-        } catch (InvalidVideoFileException | UnsupportedVideoConversionException exception) {
+        } catch (VideoUploadException exception) {
+            throw error(HttpStatus.valueOf(exception.status()), exception.code(), exception.getMessage());
+        } catch (UnsupportedVideoConversionException exception) {
+            throw error(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_CODEC", exception.getMessage());
+        } catch (InvalidVideoFileException exception) {
             throw error(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_VIDEO", exception.getMessage());
         }
     }

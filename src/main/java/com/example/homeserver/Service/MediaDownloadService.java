@@ -122,7 +122,11 @@ public class MediaDownloadService {
 	private String videoFilename(Video video, Path path) {
 		String fallback = "video-" + video.getId() + extension(path.getFileName().toString());
 		String name = safeName(video.getTitle(), fallback);
-		if (!name.contains(".")) name += extension(path.getFileName().toString());
+		String storedExtension = extension(path.getFileName().toString());
+        if (".mp4".equalsIgnoreCase(storedExtension) && name.matches("(?i).*\\.(mkv|mov|avi)$")) {
+            name = name.substring(0, name.lastIndexOf('.')) + storedExtension;
+        }
+        if (!name.contains(".")) name += storedExtension;
 		return name;
 	}
 
@@ -154,6 +158,7 @@ public class MediaDownloadService {
 	}
 
 	private MediaType mediaType(Path path) {
+        if (path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".mp4")) return MediaType.valueOf("video/mp4");
 		try {
 			return Optional.ofNullable(Files.probeContentType(path))
 					.map(MediaType::parseMediaType)

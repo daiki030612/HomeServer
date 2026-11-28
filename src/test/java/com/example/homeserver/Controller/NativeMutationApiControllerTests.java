@@ -35,6 +35,19 @@ class NativeMutationApiControllerTests {
     @MockBean CustomThumbnailService thumbnails;
     @MockBean VideoUrlImportJobService imports;
 
+    @Test void uploadErrorsHaveDistinctNativeCodes() throws Exception {
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "sample.mkv",
+                "video/x-matroska", new byte[]{1});
+        for (String code : java.util.List.of("INSUFFICIENT_STORAGE", "REMUX_FAILED", "THUMBNAIL_FAILED")) {
+            int status = code.equals("INSUFFICIENT_STORAGE") ? 507 : 422;
+            org.mockito.Mockito.doThrow(new com.example.homeserver.Service.VideoUploadException(code, status, "failure"))
+                    .when(videos).upload(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull());
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/videos/uploads")
+                    .file(file).with(user("viewer")).with(csrf()))
+                .andExpect(status().is(status)).andExpect(jsonPath("$.error.code").value(code));
+        }
+    }
+
     @Test void cookieMutationStillRequiresCsrf() throws Exception {
         mvc.perform(put("/api/v1/videos/7/favorite").with(user("viewer"))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))

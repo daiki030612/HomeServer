@@ -58,7 +58,7 @@ public class FfmpegProcessRunner {
 		return new ProcessBuilder(command).start();
 	}
 
-	private CompletableFuture<String> readLimited(InputStream stream) {
+	static CompletableFuture<String> readLimited(InputStream stream) {
 		return CompletableFuture.supplyAsync(() -> {
 			try (stream) {
 				byte[] buffer = new byte[4096];

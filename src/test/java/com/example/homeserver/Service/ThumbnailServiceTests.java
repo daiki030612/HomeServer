@@ -90,8 +90,10 @@ class ThumbnailServiceTests {
 			}
 
 			Process process = mock(Process.class);
+            when(process.getInputStream()).thenReturn(new java.io.ByteArrayInputStream(new byte[0]));
 			try {
-				when(process.waitFor()).thenReturn(exitCode);
+				when(process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)).thenReturn(true);
+                when(process.exitValue()).thenReturn(exitCode);
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 				throw new IOException(e);

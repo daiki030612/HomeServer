@@ -29,14 +29,21 @@ public class ThumbnailService {
 		try {
 			Files.createDirectories(parent);
 			ProcessBuilder builder = new ProcessBuilder(
-					"ffmpeg", "-ss", "5", "-i", videoPath,
+					"ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-ss", "0", "-i", videoPath,
+                    "-map", "0:V:0",
 					"-frames:v", "1", "-y", temporaryOutput.toString());
-			builder.inheritIO();
+			builder.redirectErrorStream(true);
 			process = startProcess(builder);
+            var diagnostic = FfmpegProcessRunner.readLimited(process.getInputStream());
 
-			int result = process.waitFor();
+			if (!process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IllegalStateException("Thumbnail decoding timed out");
+            }
+            int result = process.exitValue();
+            String detail = diagnostic.join();
 			if (result != 0) {
-				throw new IllegalStateException("FFmpeg exited with code " + result);
+				throw new IllegalStateException("FFmpeg exited with code " + result + ": " + detail);
 			}
 
 			validateThumbnail(temporaryOutput);

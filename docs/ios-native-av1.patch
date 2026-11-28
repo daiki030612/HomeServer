@@ -1,0 +1,62 @@
+--- a/NativeMediaApp/Features/VideoPlayerScreen.swift
++++ b/NativeMediaApp/Features/VideoPlayerScreen.swift
+@@ -79,2 +79,9 @@
+     }
++}
++
++private struct VideoMediaInfo: Decodable {
++    let videoCodec: String
++    let width: Int
++    let height: Int
++    let framesPerSecond: Double
+ }
+@@ -95,2 +102,4 @@
+
++    private var itemStatusObservation: NSKeyValueObservation?
++    private var playbackFormat = ""
+     private var videoID: Int64?
+@@ -119,2 +128,4 @@
+         errorMessage = nil
++        playbackFormat = ""
++        itemStatusObservation = nil
+         let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
+@@ -122,2 +133,10 @@
+         let item = AVPlayerItem(asset: asset)
++        itemStatusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
++            guard item.status == .failed else { return }
++            let failure = item.error
++            Task { @MainActor in
++                guard let self, self.player.currentItem === item else { return }
++                self.errorMessage = self.playbackFailure(failure)
++            }
++        }
+         item.preferredForwardBufferDuration = 5
+@@ -133,2 +152,10 @@
+     func loadDetail(id: Int64, baseURL: URL) async {
++        // Additive endpoint: older servers may return 404, without breaking playback.
++        if let info: VideoMediaInfo = try? await APIClient(baseURL: baseURL).get("/api/v1/videos/\(id)/media-info"),
++           videoID == id {
++            playbackFormat = "\(info.videoCodec.uppercased()) / \(info.width)×\(info.height) / \(info.framesPerSecond)fps"
++            if player.currentItem?.status == .failed {
++                errorMessage = playbackFailure(player.currentItem?.error)
++            }
++        }
+         do {
+@@ -138,2 +165,8 @@
+         } catch { errorMessage = error.localizedDescription }
++    }
++
++    private func playbackFailure(_ error: Error?) -> String {
++        let format = playbackFormat.isEmpty ? "" : "（\(playbackFormat)）"
++        return "動画を再生できません\(format)。この端末・OSがAV1/HEVCや動画のプロファイルに対応していないか、動画データに問題があります。保存動画は再圧縮していません。"
++            + (error.map { " " + $0.localizedDescription } ?? "")
+     }
+@@ -201,2 +234,3 @@
+         player.pause()
++        itemStatusObservation = nil
+         player.replaceCurrentItem(with: nil)
+@@ -218,3 +252,3 @@
+         updatePlaybackState()
+-        if player.currentItem?.status == .failed { errorMessage = player.currentItem?.error?.localizedDescription ?? "動画を再生できませんでした。" }
++        if player.currentItem?.status == .failed { errorMessage = playbackFailure(player.currentItem?.error) }
+         if currentTime - lastPositionSave >= 5 { lastPositionSave = currentTime; savePosition() }

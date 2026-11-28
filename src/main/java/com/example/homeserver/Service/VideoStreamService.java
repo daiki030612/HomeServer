@@ -95,6 +95,8 @@ public class VideoStreamService {
 	}
 
 	private MediaType detectMediaType(Path video) {
+        if (video.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".mp4"))
+            return MediaType.valueOf("video/mp4");
 		try {
 			String contentType = Files.probeContentType(video);
 			return contentType == null ? MediaType.APPLICATION_OCTET_STREAM

@@ -69,10 +69,34 @@ document.addEventListener("DOMContentLoaded", function() {
      * =========================
      */
 
-    form.addEventListener("submit", function(event) {
+    form.addEventListener("submit", async function(event) {
         event.preventDefault();
         /* * ファイル取得 */
-        const file = fileInput.files[0]; if (!file) { return; } 
+        const file = fileInput.files[0]; if (!file) { return; }
+        // Read only the first 16 bytes. Never load a multi-GB file into JS memory.
+        if (!/\.(mp4|mov|avi|mkv)$/i.test(file.name)) {
+            alert("MP4 / MOV / AVI / MKVを選択してください。"); return;
+        }
+        if (file.size === 0 || file.size > 10 * 1024 ** 3) {
+            alert("空のファイルは送信できません。アップロード上限は10GBです。"); return;
+        }
+        try {
+            const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+            const text = String.fromCharCode(...header);
+            const iso = text.slice(4, 8) === "ftyp" || text.slice(4, 8) === "moov"
+                || text.slice(4, 8) === "wide" || text.slice(4, 8) === "mdat"
+                || text.slice(4, 8) === "free";
+            const avi = text.startsWith("RIFF") && text.slice(8, 12) === "AVI ";
+            const mkv = header[0] === 0x1a && header[1] === 0x45
+                && header[2] === 0xdf && header[3] === 0xa3;
+            const extension = file.name.split(".").pop().toLowerCase();
+            if (!(extension === "mkv" ? mkv : extension === "avi" ? avi : iso)) {
+                alert("拡張子とファイルの内容が一致しないか、非対応の動画形式です。"); return;
+            }
+        } catch {
+            alert("ファイルを読み取れませんでした。もう一度選択してください。"); return;
+        }
+
 		/* * FormData */ 
 		const formData = new FormData();
 
