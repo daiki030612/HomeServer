@@ -19,8 +19,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: chmod +x mvnw
       - name: Unit, security and real codec regression
-        run: ./mvnw -B -DmediaIntegrationTests=true test
+        run: mvn -B -DmediaIntegrationTests=true test
       - name: Four GiB multipart upload with bounded heap
-        run: ./mvnw -B -DlargeUploadTests=true -Dtest=LargeDirectUploadTests -DargLine=-Xmx256m test
+        run: mvn -B -DlargeUploadTests=true -Dtest=LargeDirectUploadTests -DargLine=-Xmx256m test
       - name: Browser JavaScript tests
         run: node --test src/test/js/*.test.cjs
