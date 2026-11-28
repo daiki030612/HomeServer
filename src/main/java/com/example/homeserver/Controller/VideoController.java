@@ -29,6 +29,7 @@ import com.example.homeserver.Entity.Video;
 import com.example.homeserver.Service.FolderService;
 import com.example.homeserver.Service.TagService;
 import com.example.homeserver.Service.VideoService;
+import com.example.homeserver.Service.VideoUploadException;
 import com.example.homeserver.Service.VideoStreamService;
 import com.example.homeserver.Service.VideoUrlImportJobService;
 import com.example.homeserver.Service.InvalidVideoFileException;
@@ -293,7 +294,9 @@ public class VideoController {
 	    try {
 	        videoService.upload(file, folderId);
 	        return ResponseEntity.ok().build();
-	    } catch (InvalidVideoFileException | UnsupportedVideoConversionException e) {
+	    } catch (VideoUploadException e) {
+            return ResponseEntity.status(e.status()).body(e.getMessage());
+        } catch (InvalidVideoFileException | UnsupportedVideoConversionException e) {
 	        return ResponseEntity.badRequest().body(e.getMessage());
 	    } catch (Exception e) {
 	        logger.error("Video upload failed", e);

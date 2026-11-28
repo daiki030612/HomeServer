@@ -52,8 +52,19 @@ public class VideoProbeService {
 	}
 
 	protected ProbeResult executeProbe(Path videoPath, Duration timeout) throws Exception {
+        // Reject disguised playlists/HTML before invoking a media parser.
+        try (var input = Files.newInputStream(videoPath)) {
+            byte[] header = input.readNBytes(16);
+            String text = new String(header, StandardCharsets.ISO_8859_1);
+            String box = text.length() >= 8 ? text.substring(4, 8) : "";
+            boolean iso = java.util.Set.of("ftyp", "moov", "mdat", "wide", "free", "skip").contains(box);
+            boolean avi = text.startsWith("RIFF") && text.length() >= 12 && text.substring(8, 12).equals("AVI ");
+            boolean matroska = header.length >= 4 && header[0] == 0x1a && header[1] == 0x45
+                    && (header[2] & 255) == 0xdf && (header[3] & 255) == 0xa3;
+            if (!iso && !avi && !matroska) throw new IOException("Unsupported container signature");
+        }
 		Process process = new ProcessBuilder(
-				"ffprobe", "-v", "error",
+				"ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe",
 				"-print_format", "json",
 				"-show_format", "-show_streams",
 				videoPath.toString())
@@ -74,7 +85,12 @@ public class VideoProbeService {
 	private CompletableFuture<String> readStream(java.io.InputStream stream) {
 		return CompletableFuture.supplyAsync(() -> {
 			try (stream) {
-				return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+				byte[] bytes = stream.readNBytes(4 * 1024 * 1024);
+                if (bytes.length == 4 * 1024 * 1024) {
+                    stream.transferTo(java.io.OutputStream.nullOutputStream());
+                    throw new IOException("ffprobe metadata exceeds 4 MiB");
+                }
+                return new String(bytes, StandardCharsets.UTF_8);
 			} catch (IOException e) {
 				throw new IllegalStateException(e);
 			}

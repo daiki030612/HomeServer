@@ -1,0 +1,26 @@
+name: Video regression
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  lossless-media:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: chmod +x mvnw
+      - name: Unit, security and real codec regression
+        run: ./mvnw -B -DmediaIntegrationTests=true test
+      - name: Four GiB multipart upload with bounded heap
+        run: ./mvnw -B -DlargeUploadTests=true -Dtest=LargeDirectUploadTests -DargLine=-Xmx256m test
+      - name: Browser JavaScript tests
+        run: node --test src/test/js/*.test.cjs

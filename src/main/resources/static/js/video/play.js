@@ -56,7 +56,7 @@ function togglePlay() {
 
     if (video.paused) {
 
-        video.play();
+        video.play().catch(() => { if (video.error) showPlaybackError(video.error.code); });
 
     } else {
 
@@ -775,3 +775,28 @@ function updateVolumeIcon() {
 updateVolumeIcon();
 
 
+
+// Actual decoder support varies by device. Always preserve the server's original file.
+let mediaDescription = "";
+const playbackError = document.getElementById("playbackError");
+function showPlaybackError(code) {
+    if (!playbackError) return;
+    const reason = code === 2 ? "動画の通信に失敗しました。接続やログイン状態を確認してください。"
+        : code === 3 || code === 4
+        ? "この端末・ブラウザでは動画をデコードできないか、データに問題があります。"
+        : "動画を再生できませんでした。";
+    playbackError.textContent = reason + mediaDescription
+        + " AV1・HEVCは端末やOSによって非対応の場合があります。保存動画の自動再圧縮は行いません。";
+    playbackError.hidden = false;
+}
+video.addEventListener("error", () => showPlaybackError(video.error?.code));
+if (video.dataset.mediaInfoUrl) {
+    fetch(video.dataset.mediaInfoUrl, { credentials: "same-origin" })
+        .then(response => response.ok ? response.json() : null)
+        .then(info => {
+            if (!info) return;
+            mediaDescription = " 映像: " + info.videoCodec.toUpperCase() + " / "
+                + info.width + "×" + info.height + " / " + info.framesPerSecond + "fps。";
+            if (video.error) showPlaybackError(video.error.code);
+        }).catch(() => {});
+}

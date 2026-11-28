@@ -189,7 +189,7 @@ public class VideoService {
 		try {
 				// ファイルが空でないかチェック
 				if (file.isEmpty()) {
-					throw new RuntimeException("ファイルが選択されていません。");
+					throw new VideoUploadException("EMPTY_FILE", 400, "ファイルが選択されていません。");
 				}
 
 				// 拡張子取得
@@ -202,11 +202,15 @@ public class VideoService {
 				}
 
 				// 動画ファイルかチェック（簡易的）
-				if (!extension.equals(".mp4") && !extension.equals(".mov") && !extension.equals(".avi")) {
-					throw new RuntimeException("許可されていないファイル形式です。(.mp4, .mov, .avi のみ)");
+				if (!extension.equals(".mp4") && !extension.equals(".mov") && !extension.equals(".avi") && !extension.equals(".mkv")) {
+					throw new VideoUploadException("UNSUPPORTED_CONTAINER", 415, "非対応の形式です。MP4 / MOV / AVI / MKVを選択してください。");
 				}
 
-				// 保存用ファイル名
+				if (file.getSize() > 10L * 1024 * 1024 * 1024) {
+                    throw new VideoUploadException("FILE_TOO_LARGE", 413, "アップロード上限は10GBです。");
+                }
+
+                // 保存用ファイル名
 				String fileName = UUID.randomUUID() + extension;
 
 			// 動画保存先
@@ -217,7 +221,8 @@ public class VideoService {
 			artifacts = new UploadArtifacts(videoStorageRoot, thumbnailStorageRoot);
 			savePath = artifacts.track(resolveWithinStorage(videoStorageRoot, fileName));
 
-			file.transferTo(savePath.toFile());
+			requireFreeSpace(videoStorageRoot, file.getSize());
+            file.transferTo(savePath.toFile());
 
 			VideoMetadata metadata = videoProbeService.probe(savePath, videoStorageRoot);
 			VideoCompatibilityDecision decision = compatibilityService.evaluate(metadata);
@@ -226,6 +231,7 @@ public class VideoService {
 			if (decision == VideoCompatibilityDecision.PASSTHROUGH) {
 				adoptedVideoPath = savePath;
 			} else if (decision == VideoCompatibilityDecision.REMUX) {
+                requireFreeSpace(videoStorageRoot, Files.size(savePath) + 64L * 1024 * 1024);
 				String baseName = fileName.substring(0, fileName.lastIndexOf('.'));
 				Path temporaryRemuxPath = artifacts.track(resolveWithinStorage(
 						videoStorageRoot, "." + baseName + ".remux.tmp.mp4"));
@@ -236,41 +242,28 @@ public class VideoService {
 						.findFirst()
 						.orElseThrow(() -> new IllegalStateException("Normal video stream is missing"))
 						.streamIndex();
-				videoRemuxService.remux(
-						savePath, temporaryRemuxPath, videoStorageRoot, normalVideoStreamIndex);
+				try {
+                    videoRemuxService.remux(savePath, temporaryRemuxPath, videoStorageRoot, normalVideoStreamIndex, metadata.videoCodec());
+                } catch (Exception failure) {
+                    if (VideoUploadException.diskFull(failure))
+                        throw new VideoUploadException("INSUFFICIENT_STORAGE", 507, "MP4変換中に空き容量が不足しました。", failure);
+                    throw new VideoUploadException("REMUX_FAILED", 422, "MP4への無劣化変換に失敗しました。原本の再圧縮は行っていません。", failure);
+                }
 				VideoMetadata remuxedMetadata = videoProbeService.probe(
 						temporaryRemuxPath, videoStorageRoot);
 				if (compatibilityService.evaluate(remuxedMetadata)
 						!= VideoCompatibilityDecision.PASSTHROUGH) {
-					throw new IllegalStateException("Remuxed video did not pass compatibility validation");
+					throw new VideoUploadException("REMUX_FAILED", 422, "変換後のMP4の検証に失敗しました。");
 				}
 
-				moveIntoPlace(temporaryRemuxPath, finalRemuxPath);
+				validateRemuxTiming(metadata, remuxedMetadata);
+                moveIntoPlace(temporaryRemuxPath, finalRemuxPath);
 				adoptedVideoPath = finalRemuxPath;
 				fileName = finalRemuxPath.getFileName().toString();
-			} else if (decision == VideoCompatibilityDecision.TRANSCODE_AUDIO) {
-				String baseName = fileName.substring(0, fileName.lastIndexOf('.'));
-				Path temporaryTranscodePath = artifacts.track(resolveWithinStorage(
-						videoStorageRoot, "." + baseName + ".audio.tmp.mp4"));
-				Path finalTranscodePath = artifacts.track(resolveWithinStorage(
-						videoStorageRoot, baseName + ".mp4"));
-
-				videoAudioTranscodeService.transcodeAudio(
-						savePath, temporaryTranscodePath, videoStorageRoot);
-				VideoMetadata transcodedMetadata = videoProbeService.probe(
-						temporaryTranscodePath, videoStorageRoot);
-				if (compatibilityService.evaluate(transcodedMetadata)
-						!= VideoCompatibilityDecision.PASSTHROUGH) {
-					throw new IllegalStateException(
-							"Audio-transcoded video did not pass compatibility validation");
-				}
-
-				moveIntoPlace(temporaryTranscodePath, finalTranscodePath);
-				adoptedVideoPath = finalTranscodePath;
-				fileName = finalTranscodePath.getFileName().toString();
-			} else {
-				throw new UnsupportedVideoConversionException();
-			}
+            } else {
+                var assessment = compatibilityService.assess(metadata);
+                throw new UnsupportedVideoConversionException(assessment == null ? null : assessment.reasons());
+            }
 
 			// サムネイル名
 			String thumbnailName = fileName.substring(
@@ -282,9 +275,14 @@ public class VideoService {
 			thumbnailPath = artifacts.track(resolveWithinStorage(thumbnailStorageRoot, thumbnailName));
 
 			progressListener.onThumbnailGenerating();
-			thumbnailService.createThumbnail(
-					adoptedVideoPath.toString(),
-					thumbnailPath.toString());
+			try {
+                thumbnailService.createThumbnail(adoptedVideoPath.toString(), thumbnailPath.toString());
+            } catch (Exception failure) {
+                if (VideoUploadException.diskFull(failure))
+                    throw new VideoUploadException("INSUFFICIENT_STORAGE", 507, "サムネイル生成中に空き容量が不足しました。", failure);
+                throw new VideoUploadException("THUMBNAIL_FAILED", 422,
+                        "サムネイル生成に失敗しました。サーバーのFFmpegがこの映像のデコードに対応しているか確認してください。", failure);
+            }
 
 			// DB登録
 			Video video = new Video();
@@ -336,13 +334,17 @@ public class VideoService {
 						compensateUpload(savePath, thumbnailPath, e);
 					}
 				}
-				if (e instanceof InvalidVideoFileException invalidVideo) {
+				if (e instanceof VideoUploadException uploadError) throw uploadError;
+                if (VideoUploadException.diskFull(e)) {
+                    throw new VideoUploadException("INSUFFICIENT_STORAGE", 507, "保存先の空き容量が不足しています。", e);
+                }
+                if (e instanceof InvalidVideoFileException invalidVideo) {
 					throw invalidVideo;
 				}
 				if (e instanceof UnsupportedVideoConversionException unsupported) {
 					throw unsupported;
 				}
-				throw new RuntimeException("アップロードに失敗しました。", e);
+				throw new VideoUploadException("UPLOAD_FAILED", 500, "アップロードの保存処理に失敗しました。サーバーのログを確認してください。", e);
 		}
 		return savedVideoId;
 
@@ -386,7 +388,7 @@ public class VideoService {
 		@Override public String getContentType() { return "video/mp4"; }
 		@Override public boolean isEmpty() { try { return Files.size(source) == 0; } catch (IOException e) { return true; } }
 		@Override public long getSize() { try { return Files.size(source); } catch (IOException e) { return 0; } }
-		@Override public byte[] getBytes() throws IOException { return Files.readAllBytes(source); }
+		@Override public byte[] getBytes() throws IOException { throw new UnsupportedOperationException("Disk-backed uploads must be streamed"); }
 		@Override public InputStream getInputStream() throws IOException { return Files.newInputStream(source); }
 		@Override public void transferTo(java.io.File destination) throws IOException {
 			Files.copy(source, destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -429,7 +431,27 @@ public class VideoService {
 
 	}
 
-	private Path storageRoot(String configuredPath) {
+	private void requireFreeSpace(Path root, long required) throws IOException {
+        if (Files.getFileStore(root).getUsableSpace() < required) {
+            throw new VideoUploadException("INSUFFICIENT_STORAGE", 507, "保存先の空き容量が不足しています。");
+        }
+    }
+
+    static void validateRemuxTiming(VideoMetadata source, VideoMetadata output) {
+        var before = source.normalVideoStreams().getFirst();
+        var after = output.normalVideoStreams().getFirst();
+        // Matroska timestamps have millisecond precision; allow rounding, never a rate change.
+        if (!before.codec().equals(after.codec())
+                || Math.abs(before.framesPerSecond() - after.framesPerSecond()) > Math.max(0.1, before.framesPerSecond() * 0.001)
+                || Math.abs(source.durationSeconds() - output.durationSeconds()) > 0.25
+                || before.width() != after.width() || before.height() != after.height()
+                || !source.audioCodecs().equals(output.audioCodecs())) {
+            throw new VideoUploadException("REMUX_TIMING_MISMATCH", 422,
+                    "変換前後でコーデック・フレームレート・再生時間が一致しないため保存を中止しました。");
+        }
+    }
+
+    private Path storageRoot(String configuredPath) {
 		return Paths.get(configuredPath).toAbsolutePath().normalize();
 	}
 

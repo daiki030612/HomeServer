@@ -151,7 +151,7 @@ class VideoServiceFileConsistencyTests {
 
 		videoService.upload(multipartFile, null);
 
-		verify(videoRemuxService, never()).remux(any(), any(), any(), anyInt());
+		verify(videoRemuxService, never()).remux(any(), any(), any(), anyInt(), any());
 		try (var files = Files.list(videoRoot)) {
 			org.junit.jupiter.api.Assertions.assertEquals(1, files.count());
 		}
@@ -180,7 +180,7 @@ class VideoServiceFileConsistencyTests {
 		doAnswer(invocation -> {
 			Files.write(invocation.getArgument(1, Path.class), new byte[] { 7, 8, 9 });
 			return null;
-		}).when(videoRemuxService).remux(any(), any(), any(), anyInt());
+		}).when(videoRemuxService).remux(any(), any(), any(), anyInt(), any());
 
 		videoService.upload(multipartFile, null);
 
@@ -201,11 +201,11 @@ class VideoServiceFileConsistencyTests {
 		doAnswer(invocation -> {
 			Files.write(invocation.getArgument(1, Path.class), new byte[] { 7 });
 			return null;
-		}).when(videoRemuxService).remux(any(), any(), any(), anyInt());
+		}).when(videoRemuxService).remux(any(), any(), any(), anyInt(), any());
 
 		videoService.upload(multipartFile, null);
 
-		verify(videoRemuxService).remux(any(), any(), any(), anyInt());
+		verify(videoRemuxService).remux(any(), any(), any(), anyInt(), any());
 	}
 
 	@Test
@@ -216,7 +216,7 @@ class VideoServiceFileConsistencyTests {
 		doAnswer(invocation -> {
 			Files.write(invocation.getArgument(1, Path.class), new byte[] { 7 });
 			return null;
-		}).when(videoRemuxService).remux(any(), any(), any(), anyInt());
+		}).when(videoRemuxService).remux(any(), any(), any(), anyInt(), any());
 
 		assertThrows(RuntimeException.class, () -> videoService.upload(multipartFile, null));
 
@@ -231,7 +231,7 @@ class VideoServiceFileConsistencyTests {
 		doAnswer(invocation -> {
 			Files.write(invocation.getArgument(1, Path.class), new byte[] { 7 });
 			throw new IllegalStateException("ffmpeg exit 1");
-		}).when(videoRemuxService).remux(any(), any(), any(), anyInt());
+		}).when(videoRemuxService).remux(any(), any(), any(), anyInt(), any());
 
 		assertThrows(RuntimeException.class, () -> videoService.upload(multipartFile, null));
 		assertDirectoryHasNoFiles(videoRoot);
@@ -242,7 +242,7 @@ class VideoServiceFileConsistencyTests {
 		configureMultipartFile("sample.mov");
 		when(compatibilityService.evaluate(any())).thenReturn(VideoCompatibilityDecision.REMUX);
 		doThrow(new FfmpegProcessRunner.FfmpegTimeoutException("timeout"))
-				.when(videoRemuxService).remux(any(), any(), any(), anyInt());
+				.when(videoRemuxService).remux(any(), any(), any(), anyInt(), any());
 
 		assertThrows(RuntimeException.class, () -> videoService.upload(multipartFile, null));
 		assertDirectoryHasNoFiles(videoRoot);
@@ -257,7 +257,7 @@ class VideoServiceFileConsistencyTests {
 		doAnswer(invocation -> {
 			Files.write(invocation.getArgument(1, Path.class), new byte[] { 7 });
 			return null;
-		}).when(videoRemuxService).remux(any(), any(), any(), anyInt());
+		}).when(videoRemuxService).remux(any(), any(), any(), anyInt(), any());
 		when(videoRepository.saveAndFlush(any())).thenThrow(new IllegalStateException("database"));
 
 		assertThrows(RuntimeException.class, () -> videoService.upload(multipartFile, null));
@@ -277,7 +277,7 @@ class VideoServiceFileConsistencyTests {
 
 		org.junit.jupiter.api.Assertions.assertEquals(
 				UnsupportedVideoConversionException.USER_MESSAGE, exception.getMessage());
-		verify(videoRemuxService, never()).remux(any(), any(), any(), anyInt());
+		verify(videoRemuxService, never()).remux(any(), any(), any(), anyInt(), any());
 		verify(videoAudioTranscodeService, never()).transcodeAudio(any(), any(), any());
 		assertDirectoryHasNoFiles(videoRoot);
 	}
@@ -291,55 +291,52 @@ class VideoServiceFileConsistencyTests {
 		assertThrows(UnsupportedVideoConversionException.class,
 				() -> videoService.upload(multipartFile, null));
 
-		verify(videoRemuxService, never()).remux(any(), any(), any(), anyInt());
+		verify(videoRemuxService, never()).remux(any(), any(), any(), anyInt(), any());
 		verify(videoAudioTranscodeService, never()).transcodeAudio(any(), any(), any());
 		assertDirectoryHasNoFiles(videoRoot);
 	}
 
-	@Test
-	void incompatible22050HzAacAudioIsTranscodedAndRevalidatedAsPassthrough() throws Exception {
-		configureMultipartFile("001.MP4");
-		configureSuccessfulThumbnail();
-		when(compatibilityService.evaluate(any()))
-				.thenReturn(
-						VideoCompatibilityDecision.TRANSCODE_AUDIO,
-						VideoCompatibilityDecision.PASSTHROUGH);
-		doAnswer(invocation -> {
-			Files.write(invocation.getArgument(1, Path.class), new byte[] { 7, 8, 9 });
-			return null;
-		}).when(videoAudioTranscodeService).transcodeAudio(any(), any(), any());
+    @Test
+    void timingValidationRejectsSlowMotionAndDurationChanges() {
+        var source = IPhoneSafariCompatibilityServiceTests.metadata("av1", "mov,mp4", "mp4", 120, true);
+        var slow = IPhoneSafariCompatibilityServiceTests.metadata("av1", "mov,mp4", "mp4", 30, true);
+        assertThrows(VideoUploadException.class, () -> VideoService.validateRemuxTiming(source, slow));
+        var c = source.container();
+        var longer = new VideoMetadata(new ContainerMetadata(c.formatName(), c.formatLongName(),
+                c.majorBrand(), c.fileExtension(), c.durationSeconds() * 4, 0, c.sizeBytes(), c.bitrate(),
+                c.fastStart()), source.videoStreams(), source.audioStreams());
+        assertThrows(VideoUploadException.class, () -> VideoService.validateRemuxTiming(source, longer));
+    }
 
-		videoService.upload(multipartFile, null);
+    @Test
+    void audioTranscodeDecisionIsRejectedWithoutCallingAnyEncoder() throws Exception {
+        configureMultipartFile("sample.mkv");
+        when(compatibilityService.evaluate(any())).thenReturn(VideoCompatibilityDecision.TRANSCODE_AUDIO);
+        assertThrows(UnsupportedVideoConversionException.class, () -> videoService.upload(multipartFile, null));
+        verify(videoAudioTranscodeService, never()).transcodeAudio(any(), any(), any());
+        verify(videoRemuxService, never()).remux(any(), any(), any(), anyInt(), any());
+        assertDirectoryHasNoFiles(videoRoot);
+    }
 
-		verify(videoAudioTranscodeService).transcodeAudio(any(), any(), any());
-		verify(videoRemuxService, never()).remux(any(), any(), any(), anyInt());
-		verify(videoRepository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(video ->
-				video.getFileName().endsWith(".mp4")
-						&& video.getFilePath().endsWith(".mp4")));
-		try (var files = Files.list(videoRoot)) {
-			List<Path> remaining = files.toList();
-			org.junit.jupiter.api.Assertions.assertEquals(1, remaining.size());
-			org.junit.jupiter.api.Assertions.assertTrue(
-					remaining.getFirst().getFileName().toString().endsWith(".mp4"));
-		}
-	}
+    @Test
+    void oversizedFileIsRejectedBeforeTransfer() throws Exception {
+        when(multipartFile.isEmpty()).thenReturn(false);
+        when(multipartFile.getOriginalFilename()).thenReturn("large.mkv");
+        when(multipartFile.getSize()).thenReturn(10L * 1024 * 1024 * 1024 + 1);
+        var failure = assertThrows(VideoUploadException.class, () -> videoService.upload(multipartFile, null));
+        org.junit.jupiter.api.Assertions.assertEquals("FILE_TOO_LARGE", failure.code());
+        verify(multipartFile, never()).transferTo(any(java.io.File.class));
+    }
 
-	@Test
-	void audioTranscodeOutputThatIsNotPassthroughIsFullyRemoved() throws Exception {
-		configureMultipartFile("001.MP4");
-		when(compatibilityService.evaluate(any()))
-				.thenReturn(
-						VideoCompatibilityDecision.TRANSCODE_AUDIO,
-						VideoCompatibilityDecision.TRANSCODE_AUDIO);
-		doAnswer(invocation -> {
-			Files.write(invocation.getArgument(1, Path.class), new byte[] { 7 });
-			return null;
-		}).when(videoAudioTranscodeService).transcodeAudio(any(), any(), any());
-
-		assertThrows(RuntimeException.class, () -> videoService.upload(multipartFile, null));
-		assertDirectoryHasNoFiles(videoRoot);
-		verify(videoRepository, never()).saveAndFlush(any());
-	}
+    @Test
+    void outOfSpaceDuringTransferIsIdentifiedAndCleanedUp() throws Exception {
+        when(multipartFile.isEmpty()).thenReturn(false);
+        when(multipartFile.getOriginalFilename()).thenReturn("sample.mp4");
+        doThrow(new java.io.IOException("No space left on device")).when(multipartFile).transferTo(any(java.io.File.class));
+        var failure = assertThrows(VideoUploadException.class, () -> videoService.upload(multipartFile, null));
+        org.junit.jupiter.api.Assertions.assertEquals("INSUFFICIENT_STORAGE", failure.code());
+        assertDirectoryHasNoFiles(videoRoot);
+    }
 
 	@Test
 	void uploadRemovesPartialVideoWhenTransferFails() throws Exception {

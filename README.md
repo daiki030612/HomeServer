@@ -33,3 +33,7 @@ VideoServerがログイン資格情報を検証し、VideoServerとImageGallery�
 ```
 
 Cloudflare TunnelをPublic Hostnameとして使う場合、Cloudflare外に保存した動画の配信はプラン／サービス固有条件の対象です。公開前に [Cloudflareの動画配信ガイド](https://developers.cloudflare.com/fundamentals/reference/policies-compliances/delivering-videos-with-cloudflare/) と契約を確認してください。設定例と公開前チェックリストはAsset Managerリポジトリの `docs/cloudflare-tunnel.md` にあります。
+
+## AV1 / MKV
+
+AV1・H.264・HEVCのMP4原本保存とMKVの無劣化MP4変換に対応します。端末ごとの再生対応、FFmpeg要件、エラーと検証手順は[AV1 / MKV対応](docs/AV1_MKV.md)を参照してください。

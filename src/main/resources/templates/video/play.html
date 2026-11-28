@@ -24,7 +24,7 @@
 
 		<div id="videoPlayerContainer" class="video-player-container">
 
-			<video id="videoPlayer" th:src="@{'/videos/play/' + ${video.id}}" playsinline preload="metadata">
+			<video th:data-media-info-url="@{/videos/{id}/media-info(id=${video.id})}" id="videoPlayer" th:src="@{'/videos/play/' + ${video.id}}" playsinline preload="metadata">
 
 				お使いのブラウザは動画再生に対応していません。
 
@@ -120,6 +120,7 @@
 	     動画情報
 	========================== -->
 
+	<p id="playbackError" role="alert" hidden></p>
 	<div class="video-info">
 
 		<!-- タイトル -->
